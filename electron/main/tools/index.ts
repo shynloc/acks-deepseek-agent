@@ -5,6 +5,7 @@ import './builtin/web'
 import './builtin/files'
 import './builtin/documents'
 import './builtin/spreadsheet'
+import './builtin/docx'
 
 export { toolRegistry } from './registry'
 export type { ToolEntry, ToolContext, ToolSchema } from './registry'
