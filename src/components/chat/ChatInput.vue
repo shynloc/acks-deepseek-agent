@@ -35,6 +35,7 @@ interface Attachment {
   icon: 'file' | 'image'
   status: 'parsing' | 'ready' | 'error'
   result?: ParseResult
+  preview?: string      // base64 data URL for image thumbnails
   error?: string
 }
 
@@ -57,12 +58,43 @@ function autoResize(): void {
 
 async function send(): Promise<void> {
   if (!canSend.value) return
-  const content = text.value.trim()
+  const userText = text.value.trim()
+
+  // Build hidden context prefix from ready attachments (sent to AI, not shown in bubble)
+  const readyAtts = attachments.value.filter(a => a.status === 'ready')
+  let contextPrefix = ''
+  for (const att of readyAtts) {
+    if (att.result?.text) {
+      const label = att.result.visionUsed
+        ? `【图片（AI 视觉分析）：${att.name}】`
+        : att.result.isOcr
+          ? `【图片（OCR 文字）：${att.name}】`
+          : `【附件：${att.name}（${att.type}）】`
+      contextPrefix += `${label}\n\n${att.result.text}\n\n---\n\n`
+    }
+  }
+
+  // Build display-only attachment metadata for the bubble
+  const displayAttachments = readyAtts.map(a => ({
+    name:       a.name,
+    type:       a.type,
+    preview:    a.preview,
+    visionUsed: a.result?.visionUsed,
+    isOcr:      a.result?.isOcr
+  }))
+
+  // Also carry over injected note titles (they're already in text.value as blocks)
+  // Those blocks stay in userText for now — note injection keeps its current behavior
+
   text.value = ''
   injectedNotes.value = []
   attachments.value = []
   if (textarea.value) textarea.value.style.height = 'auto'
-  await chat.sendMessage(content)
+
+  await chat.sendMessage(userText, {
+    contextPrefix: contextPrefix || undefined,
+    attachments:   displayAttachments.length ? displayAttachments : undefined
+  })
 }
 
 function onKeydown(e: KeyboardEvent): void {
@@ -97,6 +129,13 @@ async function addAttachment(file: File) {
   }
   attachments.value.push(att)
 
+  // Generate base64 preview for images (shown in input area & message bubble)
+  if (isImage) {
+    const reader = new FileReader()
+    reader.onload = e => { att.preview = e.target?.result as string }
+    reader.readAsDataURL(file)
+  }
+
   // Build parse options — pass vision config if key is set
   const parseOptions = settings.visionEnabled
     ? {
@@ -111,42 +150,17 @@ async function addAttachment(file: File) {
 
   try {
     const result = await parseFile(file, parseOptions)
-    att.type = result.type
+    att.type   = result.type
     att.result = result
     att.status = 'ready'
-
-    // Inject text context into the input
-    if (result.text) {
-      const label = result.isOcr
-        ? `【图片OCR：${file.name}】`
-        : `【附件：${file.name}（${result.type}）】`
-      const block = `${label}\n\n${result.text}\n\n---\n\n`
-      text.value = block + text.value
-      nextTick(autoResize)
-    }
+    // NOTE: text is NOT injected into textarea — context is passed at send time
   } catch (err: any) {
     att.status = 'error'
-    att.error = err.message
+    att.error  = err.message
   }
 }
 
 function removeAttachment(id: string) {
-  const att = attachments.value.find(a => a.id === id)
-  if (!att) return
-
-  if (att.result?.text) {
-    // Find and remove the injected block from text
-    const label = att.result.isOcr
-      ? `【图片OCR：${att.name}】`
-      : `【附件：${att.name}（${att.type}）】`
-    const start = text.value.indexOf(label)
-    if (start !== -1) {
-      const end = text.value.indexOf('---\n\n', start)
-      if (end !== -1) text.value = text.value.slice(0, start) + text.value.slice(end + 5)
-    }
-    nextTick(autoResize)
-  }
-
   attachments.value = attachments.value.filter(a => a.id !== id)
 }
 
@@ -199,51 +213,51 @@ function removeInjectedNote(noteId: string) {
         <button class="ml-0.5 hover:text-red-500" @click="removeInjectedNote(n.id)"><X class="w-2.5 h-2.5" /></button>
       </span>
 
-      <!-- File chips -->
-      <span
+      <!-- File / Image chips -->
+      <div
         v-for="att in attachments"
         :key="att.id"
-        class="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border transition-colors"
+        class="relative flex items-center gap-1.5 rounded-xl border transition-colors overflow-hidden"
         :class="{
-          'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400': att.status === 'parsing',
-          'bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400': att.status === 'ready' && att.result?.visionUsed,
-          'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400': att.status === 'ready' && !att.result?.visionUsed,
-          'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400': att.status === 'error'
+          'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 text-[11px]': !att.preview,
+          'border-violet-200 dark:border-violet-700': att.status === 'ready' && att.result?.visionUsed && !att.preview,
+          'border-emerald-200 dark:border-emerald-700': att.status === 'ready' && !att.result?.visionUsed && !att.preview,
+          'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20': att.status === 'error',
+          'p-0': !!att.preview
         }"
       >
-        <Loader v-if="att.status === 'parsing'" class="w-2.5 h-2.5 animate-spin" />
-        <ImageIcon v-else-if="att.icon === 'image'" class="w-2.5 h-2.5 shrink-0" />
-        <FileText v-else class="w-2.5 h-2.5 shrink-0" />
+        <!-- Image thumbnail preview -->
+        <template v-if="att.preview">
+          <div class="relative w-16 h-16 shrink-0">
+            <img :src="att.preview" class="w-full h-full object-cover rounded-xl" />
+            <!-- overlay while parsing -->
+            <div v-if="att.status === 'parsing'" class="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+              <Loader class="w-4 h-4 text-white animate-spin" />
+            </div>
+            <!-- done indicator -->
+            <div v-else-if="att.status === 'ready'" class="absolute bottom-0.5 right-0.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+              <CheckCircle class="w-2.5 h-2.5 text-white" />
+            </div>
+            <!-- vision badge -->
+            <div v-if="att.status === 'ready' && att.result?.visionUsed" class="absolute top-0.5 left-0.5 bg-violet-600 text-white text-[8px] px-1 rounded font-medium leading-4">AI</div>
+          </div>
+          <button class="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors" @click="removeAttachment(att.id)">
+            <X class="w-2.5 h-2.5 text-white" />
+          </button>
+        </template>
 
-        <span class="max-w-[120px] truncate">{{ att.name }}</span>
-        <span v-if="att.status === 'parsing'" class="opacity-60">解析中…</span>
-        <span v-else-if="att.status === 'ready'" class="opacity-60">{{ att.type }}</span>
-
-        <!-- Warning tooltip -->
-        <span
-          v-if="att.status === 'ready' && att.result?.warning"
-          class="cursor-help"
-          :title="att.result.warning"
-        ><AlertCircle class="w-2.5 h-2.5 text-amber-500" /></span>
-
-        <!-- Error detail -->
-        <span v-if="att.status === 'error'" class="cursor-help" :title="att.error">
-          <AlertCircle class="w-2.5 h-2.5" />
-        </span>
-
-        <!-- No-text warning for OCR failure -->
-        <span
-          v-if="att.status === 'ready' && att.result?.isOcr && !att.result?.text"
-          class="text-amber-500 ml-0.5"
-          title="未识别到文字，DeepSeek 不支持图像理解"
-        >⚠</span>
-
-        <button
-          v-if="att.status !== 'parsing'"
-          class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500 transition-colors"
-          @click="removeAttachment(att.id)"
-        ><X class="w-2.5 h-2.5" /></button>
-      </span>
+        <!-- Non-image file chip -->
+        <template v-else>
+          <Loader v-if="att.status === 'parsing'" class="w-2.5 h-2.5 animate-spin shrink-0" />
+          <FileText v-else class="w-2.5 h-2.5 shrink-0" />
+          <span class="max-w-[140px] truncate">{{ att.name }}</span>
+          <span v-if="att.status === 'parsing'" class="opacity-50">解析中…</span>
+          <span v-else-if="att.status === 'ready'" class="opacity-50">{{ att.type }}</span>
+          <span v-if="att.result?.warning" class="cursor-help" :title="att.result.warning"><AlertCircle class="w-2.5 h-2.5 text-amber-500" /></span>
+          <span v-if="att.status === 'error'" class="cursor-help" :title="att.error"><AlertCircle class="w-2.5 h-2.5" /></span>
+          <button v-if="att.status !== 'parsing'" class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500" @click="removeAttachment(att.id)"><X class="w-2.5 h-2.5" /></button>
+        </template>
+      </div>
     </div>
 
     <div class="p-4 pt-3">

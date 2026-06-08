@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
-import { BookmarkPlus, Copy, Check } from '@lucide/vue'
+import { BookmarkPlus, Copy, Check, FileText, ImageIcon } from '@lucide/vue'
 import type { Message } from '@/stores/chat'
 
 const props = defineProps<{ message: Message; isStreaming?: boolean }>()
@@ -29,7 +29,9 @@ const renderedContent = computed(() => {
   return DOMPurify.sanitize(raw)
 })
 
-const isUser = computed(() => props.message.role === 'user')
+const isUser       = computed(() => props.message.role === 'user')
+const bubbleText   = computed(() => props.message.displayText ?? props.message.content)
+const hasAttachments = computed(() => !!props.message.attachments?.length)
 
 const copied = ref(false)
 async function copyContent() {
@@ -43,11 +45,34 @@ async function copyContent() {
   <div class="group px-4 py-3" :class="isUser ? 'flex justify-end' : ''">
 
     <!-- User message: compact bubble -->
-    <div
-      v-if="isUser"
-      class="max-w-[72%] bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words select-text"
-    >
-      {{ message.content }}
+    <div v-if="isUser" class="max-w-[72%] flex flex-col items-end gap-1.5">
+      <!-- Attachment previews (images + file chips) -->
+      <template v-if="hasAttachments">
+        <div class="flex flex-wrap gap-1.5 justify-end">
+          <template v-for="att in message.attachments" :key="att.name">
+            <!-- Image thumbnail -->
+            <div v-if="att.preview" class="relative rounded-xl overflow-hidden border border-white/20 shadow-sm">
+              <img :src="att.preview" class="max-w-[200px] max-h-[160px] object-cover rounded-xl" />
+              <div v-if="att.visionUsed" class="absolute bottom-1 right-1 bg-violet-600 text-white text-[8px] px-1.5 py-0.5 rounded font-medium">AI 视觉</div>
+              <div v-else-if="att.isOcr"   class="absolute bottom-1 right-1 bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded font-medium">OCR</div>
+            </div>
+            <!-- File chip -->
+            <div v-else class="flex items-center gap-1.5 bg-blue-500 text-white text-xs px-2.5 py-1.5 rounded-xl">
+              <FileText class="w-3 h-3 shrink-0" />
+              <span class="max-w-[120px] truncate">{{ att.name }}</span>
+              <span class="opacity-70 text-[10px]">{{ att.type }}</span>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- User text bubble (empty check: don't show if pure attachment message with no text) -->
+      <div
+        v-if="bubbleText"
+        class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words select-text"
+      >
+        {{ bubbleText }}
+      </div>
     </div>
 
     <!-- Assistant message: full-width document style -->

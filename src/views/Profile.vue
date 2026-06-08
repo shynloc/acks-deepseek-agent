@@ -329,6 +329,26 @@ async function importMarkdown() {
             </div>
           </div>
 
+          <!-- Temperature -->
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+              Temperature（创意度）
+              <span class="text-xs text-gray-400 font-normal ml-1">0 = 精确/确定性，1 = 均衡，2 = 发散/创意</span>
+            </label>
+            <div class="flex items-center gap-3">
+              <input
+                v-model.number="settings.temperature"
+                type="range" min="0" max="2" step="0.1"
+                class="flex-1 accent-blue-500"
+                @change="settings.save()"
+              />
+              <span class="text-sm font-mono w-8 text-right text-gray-600 dark:text-gray-400">{{ settings.temperature.toFixed(1) }}</span>
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 mt-0.5 px-0.5">
+              <span>精确 0</span><span>均衡 1（推荐）</span><span>创意 2</span>
+            </div>
+          </div>
+
           <!-- Base URL -->
           <div>
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">API 地址</label>
@@ -751,7 +771,7 @@ async function importMarkdown() {
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.4</div>
+      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.5</div>
     </div>
   </div>
 

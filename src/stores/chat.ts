@@ -4,10 +4,20 @@ import { useSettingsStore } from './settings'
 import { useToastStore } from './toast'
 import { useSkillsStore, type ProposedSkill } from './skills'
 
+export interface MessageAttachment {
+  name:        string
+  type:        string     // "图片（MiMo）", "PDF" etc.
+  preview?:    string     // base64 data URL, in-memory only (not persisted)
+  visionUsed?: boolean
+  isOcr?:      boolean
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
-  content: string
+  content: string          // full content including hidden 【附件】 context sent to AI
+  displayText?: string     // what to show in the bubble (just user's typed text), in-memory only
+  attachments?: MessageAttachment[]  // in-memory only, not persisted
   tokensUsed: number
   createdAt: number
 }
@@ -94,7 +104,10 @@ export const useChatStore = defineStore('chat', () => {
 
   // ── Send message (agent loop) ──────────────────────────────────────────────
 
-  async function sendMessage(content: string): Promise<void> {
+  async function sendMessage(
+    content: string,
+    opts?: { contextPrefix?: string; attachments?: MessageAttachment[] }
+  ): Promise<void> {
     const settings  = useSettingsStore()
     const skillsStore = useSkillsStore()
     if (!settings.apiKey) throw new Error('请先配置 API Key')
@@ -105,8 +118,19 @@ export const useChatStore = defineStore('chat', () => {
       convId = conv.id
     }
 
-    // Add user message
-    const userMsg: Message = { id: genId(), role: 'user', content, tokensUsed: 0, createdAt: Date.now() }
+    // Build the full content for the API (includes attachment context prefix)
+    const apiContent = opts?.contextPrefix
+      ? opts.contextPrefix + (content ? '\n\n' + content : '')
+      : content
+
+    // Add user message — store full apiContent but also keep displayText + attachments in memory
+    const userMsg: Message = {
+      id: genId(), role: 'user',
+      content:     apiContent,
+      displayText: content || undefined,
+      attachments: opts?.attachments?.length ? opts.attachments : undefined,
+      tokensUsed:  0, createdAt: Date.now()
+    }
     messages.value.push(userMsg)
     await window.api.db.messages.create(convId, userMsg)
 
@@ -127,7 +151,7 @@ export const useChatStore = defineStore('chat', () => {
     // Pop the user message we just added (agent:run adds it itself)
     history.pop()
 
-    // Match skills for this input → inject hints into soul
+    // Match skills for this input → inject hints into soul (match on user's typed text, not context)
     await skillsStore.load()
     const matchedSkills = skillsStore.matchForInput(content)
     const skillHints    = skillsStore.buildSystemHintFor(matchedSkills)
@@ -180,7 +204,7 @@ export const useChatStore = defineStore('chat', () => {
 
     try {
       await window.api.agent.run({
-        message:        content,
+        message:        apiContent,
         conversationId: convId,
         history,
         soulContent:    soulWithSkills
@@ -212,7 +236,7 @@ export const useChatStore = defineStore('chat', () => {
       // Auto-title on first exchange
       const conv2 = conversations.value.find(c => c.id === convId)
       if (conv2?.title === '新对话' && messages.value.filter(m => m.role === 'user').length === 1) {
-        autoTitle(convId!, content, assistantMsg.content)
+        autoTitle(convId!, content || apiContent, assistantMsg.content)
       }
 
       // Auto-extract skill when 3+ tool calls were made (fire-and-forget)

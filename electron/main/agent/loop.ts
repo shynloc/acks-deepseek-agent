@@ -38,7 +38,8 @@ export async function runAgentLoop(
   const apiKey    = (ctx.store.get('apiKey')    as string | undefined) ?? ''
   const baseUrl   = ((ctx.store.get('baseUrl') as string | undefined) ?? 'https://api.deepseek.com').replace(/\/$/, '')
   const model     = (ctx.store.get('model')    as string | undefined) ?? 'deepseek-v4-flash'
-  const maxTokens = Number((ctx.store.get('maxTokens') as number | undefined) ?? 8192) || 8192
+  const maxTokens   = Number((ctx.store.get('maxTokens')   as number | undefined) ?? 8192) || 8192
+  const temperature = Number((ctx.store.get('temperature') as number | undefined) ?? 1.0)
 
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
@@ -51,7 +52,7 @@ export async function runAgentLoop(
       response = await net.fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens }),
+        body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens, temperature }),
         signal: callbacks.signal as RequestInit['signal']
       })
     } catch (e: any) {
@@ -96,7 +97,7 @@ export async function runAgentLoop(
         // Inject a final hint so DeepSeek wraps up instead of looping
         messages.push({ role: 'user', content: `[系统提示] 工具调用已被安全机制中止（${decision.message}），请直接告知用户遇到的问题，不要继续调用工具。` })
         // Run one final non-tool turn to get a human-readable reply
-        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage, maxTokens)
+        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage, maxTokens, temperature)
         return
       }
 
@@ -142,13 +143,14 @@ async function runFinalTurn(
   model: string,
   callbacks: AgentCallbacks,
   totalUsage: { promptTokens: number; completionTokens: number },
-  maxTokens: number
+  maxTokens: number,
+  temperature: number
 ): Promise<void> {
   try {
     const res = await net.fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: true, max_tokens: maxTokens })
+      body: JSON.stringify({ model, messages, stream: true, max_tokens: maxTokens, temperature })
     })
     if (!res.ok) { callbacks.onDone(totalUsage); return }
     const { usage } = await parseStream(res, callbacks)

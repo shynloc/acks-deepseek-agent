@@ -11,8 +11,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const testResult  = ref<'success' | 'fail' | null>(null)
 
   // ── Output length ─────────────────────────────────────────────────────────
-  // DeepSeek default is ~4096 which causes truncation; flash/pro support up to 384K
-  const maxTokens = ref(8192)
+  const maxTokens   = ref(8192)    // DeepSeek default ~4096, flash/pro support up to 384K
+  const temperature = ref(1.0)     // 0 = deterministic, 1 = balanced, 2 = creative
 
   // ── Soul (Agent 身份注入) ─────────────────────────────────────────────────
   const soulContent = ref('')
@@ -41,7 +41,8 @@ export const useSettingsStore = defineStore('settings', () => {
     apiKey.value   = (await window.api.config.get('apiKey')   as string) ?? ''
     baseUrl.value  = (await window.api.config.get('baseUrl')  as string) ?? 'https://api.deepseek.com'
     model.value    = (await window.api.config.get('model')    as string) ?? 'deepseek-v4-flash'
-    maxTokens.value = Number((await window.api.config.get('maxTokens')) ?? 8192) || 8192
+    maxTokens.value   = Number((await window.api.config.get('maxTokens'))   ?? 8192) || 8192
+    temperature.value = Number((await window.api.config.get('temperature')) ?? 1.0)
     soulContent.value = (await window.api.config.get('soulContent') as string) ?? ''
     tavilyKey.value = (await window.api.config.get('tavilyKey') as string) ?? ''
     visionApiKey.value  = (await window.api.config.get('visionApiKey')  as string) ?? ''
@@ -54,7 +55,8 @@ export const useSettingsStore = defineStore('settings', () => {
     await window.api.config.set('apiKey',  apiKey.value)
     await window.api.config.set('baseUrl', baseUrl.value)
     await window.api.config.set('model',      model.value)
-    await window.api.config.set('maxTokens',  maxTokens.value)
+    await window.api.config.set('maxTokens',   maxTokens.value)
+    await window.api.config.set('temperature', temperature.value)
     await window.api.config.set('soulContent', soulContent.value)
     await window.api.config.set('tavilyKey', tavilyKey.value)
     await window.api.config.set('visionApiKey',  visionApiKey.value)
@@ -91,7 +93,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
-    apiKey, baseUrl, model, maxTokens, isTesting, testResult,
+    apiKey, baseUrl, model, maxTokens, temperature, isTesting, testResult,
     soulContent, soulEnabled,
     tavilyKey, tavilyEnabled,
     visionApiKey, visionBaseUrl, visionModel, visionEnabled, isTestingVision, visionTestResult, visionTestError,
