@@ -309,6 +309,26 @@ async function importMarkdown() {
             </select>
           </div>
 
+          <!-- Max Tokens -->
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+              最大输出 Token
+              <span class="text-xs text-gray-400 font-normal ml-1">（flash/pro 上限 384K，默认 8192 约 2 万字）</span>
+            </label>
+            <div class="flex items-center gap-3">
+              <input
+                v-model.number="settings.maxTokens"
+                type="range" min="2048" max="65536" step="2048"
+                class="flex-1 accent-blue-500"
+                @change="settings.save()"
+              />
+              <span class="text-sm font-mono w-16 text-right text-gray-600 dark:text-gray-400">{{ settings.maxTokens.toLocaleString() }}</span>
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 mt-0.5 px-0.5">
+              <span>2K</span><span>8K（推荐）</span><span>32K</span><span>64K</span>
+            </div>
+          </div>
+
           <!-- Base URL -->
           <div>
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">API 地址</label>
@@ -731,7 +751,7 @@ async function importMarkdown() {
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.3</div>
+      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.4</div>
     </div>
   </div>
 

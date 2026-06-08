@@ -35,9 +35,10 @@ export async function runAgentLoop(
   const tools      = toolRegistry.getAll({ enabledOnly: true })
   const toolsDef   = toolRegistry.toApiFormat(tools)
 
-  const apiKey = (ctx.store.get('apiKey') as string | undefined) ?? ''
-  const baseUrl = ((ctx.store.get('baseUrl') as string | undefined) ?? 'https://api.deepseek.com').replace(/\/$/, '')
-  const model   = (ctx.store.get('model')   as string | undefined) ?? 'deepseek-v4-flash'
+  const apiKey    = (ctx.store.get('apiKey')    as string | undefined) ?? ''
+  const baseUrl   = ((ctx.store.get('baseUrl') as string | undefined) ?? 'https://api.deepseek.com').replace(/\/$/, '')
+  const model     = (ctx.store.get('model')    as string | undefined) ?? 'deepseek-v4-flash'
+  const maxTokens = Number((ctx.store.get('maxTokens') as number | undefined) ?? 8192) || 8192
 
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
@@ -50,7 +51,7 @@ export async function runAgentLoop(
       response = await net.fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true }),
+        body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens }),
         signal: callbacks.signal as RequestInit['signal']
       })
     } catch (e: any) {
@@ -66,12 +67,15 @@ export async function runAgentLoop(
     }
 
     // ── Parse streaming response (buffer tool_calls JSON fragments) ──────────
-    const { textContent, toolCalls, usage } = await parseStream(response, callbacks)
+    const { textContent, toolCalls, usage, finishReason } = await parseStream(response, callbacks)
     totalUsage.promptTokens     += usage.promptTokens
     totalUsage.completionTokens += usage.completionTokens
 
     // ── No tool calls → final answer, exit loop ──────────────────────────────
     if (!toolCalls.length) {
+      if (finishReason === 'length') {
+        callbacks.onDelta('\n\n> ⚠️ 回复已达到最大输出长度（max_tokens=' + maxTokens + '），内容可能不完整。可在设置中调大「最大输出」。')
+      }
       callbacks.onDone(totalUsage)
       return
     }
@@ -92,7 +96,7 @@ export async function runAgentLoop(
         // Inject a final hint so DeepSeek wraps up instead of looping
         messages.push({ role: 'user', content: `[系统提示] 工具调用已被安全机制中止（${decision.message}），请直接告知用户遇到的问题，不要继续调用工具。` })
         // Run one final non-tool turn to get a human-readable reply
-        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage)
+        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage, maxTokens)
         return
       }
 
@@ -137,13 +141,14 @@ async function runFinalTurn(
   baseUrl: string,
   model: string,
   callbacks: AgentCallbacks,
-  totalUsage: { promptTokens: number; completionTokens: number }
+  totalUsage: { promptTokens: number; completionTokens: number },
+  maxTokens: number
 ): Promise<void> {
   try {
     const res = await net.fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: true })
+      body: JSON.stringify({ model, messages, stream: true, max_tokens: maxTokens })
     })
     if (!res.ok) { callbacks.onDone(totalUsage); return }
     const { usage } = await parseStream(res, callbacks)
@@ -160,11 +165,12 @@ async function runFinalTurn(
 async function parseStream(
   response: Response,
   callbacks: AgentCallbacks
-): Promise<{ textContent: string; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number } }> {
+): Promise<{ textContent: string; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number }; finishReason: string | null }> {
   const reader  = response.body!.getReader()
   const decoder = new TextDecoder()
 
-  let textContent = ''
+  let textContent  = ''
+  let finishReason = null as string | null
   // index → accumulated buffer
   const tcBufs = new Map<number, { id: string; name: string; args: string }>()
   let usage = { promptTokens: 0, completionTokens: 0 }
@@ -193,6 +199,9 @@ async function parseStream(
           callbacks.onDelta(delta.content)
         }
 
+        const fr = json.choices?.[0]?.finish_reason
+        if (fr) finishReason = fr
+
         // Buffer fragmented tool_call JSON arguments
         if (delta?.tool_calls) {
           for (const tc of delta.tool_calls) {
@@ -218,5 +227,5 @@ async function parseStream(
     function: { name: buf.name, arguments: buf.args }
   }))
 
-  return { textContent, toolCalls: toolCalls.filter(t => t.function.name), usage }
+  return { textContent, toolCalls: toolCalls.filter(t => t.function.name), usage, finishReason }
 }
