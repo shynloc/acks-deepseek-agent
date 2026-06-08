@@ -345,6 +345,80 @@ export function registerIpcHandlers(): void {
     return { success: true, count }
   })
 
+  // ── Skills ────────────────────────────────────────────────────────────────
+  ipcMain.handle('db:skills:list', () => {
+    return ccAll(getDatabase().prepare('SELECT * FROM skills ORDER BY updated_at DESC').all() as any[])
+  })
+
+  ipcMain.handle('db:skills:create', (_, s: any) => {
+    const db = getDatabase()
+    const now = Date.now()
+    db.prepare(`INSERT INTO skills
+      (id,name,description,trigger_keywords,system_hint,tool_sequence,usage_count,source,created_at,updated_at)
+      VALUES (@id,@name,@description,@triggerKeywords,@systemHint,@toolSequence,0,@source,@createdAt,@updatedAt)
+    `).run({ id: s.id, name: s.name, description: s.description,
+              triggerKeywords: s.triggerKeywords ?? '[]', systemHint: s.systemHint ?? '',
+              toolSequence: s.toolSequence ?? null, source: s.source ?? 'manual',
+              createdAt: now, updatedAt: now })
+    return cc(db.prepare('SELECT * FROM skills WHERE id = ?').get(s.id) as any)
+  })
+
+  ipcMain.handle('db:skills:update', (_, id: string, patch: any) => {
+    const db = getDatabase()
+    const parts: string[] = ['updated_at = ?']
+    const vals: unknown[] = [Date.now()]
+    if (patch.name             !== undefined) { parts.push('name = ?');              vals.push(patch.name) }
+    if (patch.description      !== undefined) { parts.push('description = ?');       vals.push(patch.description) }
+    if (patch.triggerKeywords  !== undefined) { parts.push('trigger_keywords = ?');  vals.push(patch.triggerKeywords) }
+    if (patch.systemHint       !== undefined) { parts.push('system_hint = ?');       vals.push(patch.systemHint) }
+    if (patch.usageCount       !== undefined) { parts.push('usage_count = ?');       vals.push(patch.usageCount) }
+    vals.push(id)
+    db.prepare(`UPDATE skills SET ${parts.join(', ')} WHERE id = ?`).run(...vals)
+  })
+
+  ipcMain.handle('db:skills:delete', (_, id: string) =>
+    getDatabase().prepare('DELETE FROM skills WHERE id = ?').run(id)
+  )
+
+  // ── Plugins ───────────────────────────────────────────────────────────────
+  ipcMain.handle('db:plugins:list', () => {
+    return ccAll(getDatabase().prepare('SELECT * FROM plugins ORDER BY created_at DESC').all() as any[])
+  })
+
+  ipcMain.handle('db:plugins:create', (_, p: any) => {
+    const db = getDatabase()
+    const now = Date.now()
+    db.prepare(`INSERT INTO plugins
+      (id,name,display_name,description,endpoint_url,method,headers_json,param_schema_json,enabled,created_at)
+      VALUES (@id,@name,@displayName,@description,@endpointUrl,@method,@headersJson,@paramSchemaJson,1,@createdAt)
+    `).run({ id: p.id, name: p.name, displayName: p.displayName, description: p.description,
+              endpointUrl: p.endpointUrl, method: p.method ?? 'POST',
+              headersJson: p.headersJson ?? null, paramSchemaJson: p.paramSchemaJson ?? null,
+              createdAt: now })
+    return cc(db.prepare('SELECT * FROM plugins WHERE id = ?').get(p.id) as any)
+  })
+
+  ipcMain.handle('db:plugins:update', (_, id: string, patch: any) => {
+    const db = getDatabase()
+    const parts: string[] = []
+    const vals: unknown[] = []
+    const fields: Record<string, string> = {
+      name: 'name', displayName: 'display_name', description: 'description',
+      endpointUrl: 'endpoint_url', method: 'method',
+      headersJson: 'headers_json', paramSchemaJson: 'param_schema_json', enabled: 'enabled'
+    }
+    for (const [key, col] of Object.entries(fields)) {
+      if (patch[key] !== undefined) { parts.push(`${col} = ?`); vals.push(patch[key]) }
+    }
+    if (!parts.length) return
+    vals.push(id)
+    db.prepare(`UPDATE plugins SET ${parts.join(', ')} WHERE id = ?`).run(...vals)
+  })
+
+  ipcMain.handle('db:plugins:delete', (_, id: string) =>
+    getDatabase().prepare('DELETE FROM plugins WHERE id = ?').run(id)
+  )
+
   // ── Generic API test (runs in main process, no CSP) ──────────────────────
   ipcMain.handle('api:test', async (_, { url, apiKey, model }: { url: string; apiKey: string; model: string }) => {
     const safeKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim()

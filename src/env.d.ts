@@ -40,6 +40,18 @@ interface Window {
         list: (noteId: string) => Promise<unknown[]>
         get: (versionId: string) => Promise<unknown>
       }
+      skills: {
+        list: () => Promise<unknown[]>
+        create: (s: unknown) => Promise<unknown>
+        update: (id: string, patch: unknown) => Promise<void>
+        delete: (id: string) => Promise<void>
+      }
+      plugins: {
+        list: () => Promise<unknown[]>
+        create: (p: unknown) => Promise<unknown>
+        update: (id: string, patch: unknown) => Promise<void>
+        delete: (id: string) => Promise<void>
+      }
       shortcuts: {
         list: () => Promise<unknown[]>
         add: (noteId: string) => Promise<void>

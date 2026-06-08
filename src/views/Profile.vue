@@ -3,17 +3,45 @@ import { onMounted, computed, ref } from 'vue'
 import {
   MessageSquare, FileText, Type, Zap, Key, Sun, Moon,
   CheckCircle, XCircle, Loader, Download, Upload,
-  FolderOpen, FileJson, BookOpen, AlertCircle, Eye, Globe, Bot
+  FolderOpen, FileJson, BookOpen, AlertCircle, Eye, Globe, Bot, Sparkles, Pencil, Trash2, Plus
 } from '@lucide/vue'
+import SkillDialog from '@/components/skills/SkillDialog.vue'
+import { useSkillsStore, type Skill } from '@/stores/skills'
 import { useUIStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import ActivityChart from '@/components/ActivityChart.vue'
 
-const uiStore = useUIStore()
+const uiStore  = useUIStore()
 const settings = useSettingsStore()
-const chat = useChatStore()
+const skillsStore = useSkillsStore()
+const chat     = useChatStore()
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle')
+
+// ── Skills management ─────────────────────────────────────────────────────────
+const skillDialogMode    = ref<'create' | 'edit'>('create')
+const skillDialogVisible = ref(false)
+const editingSkill       = ref<Skill | undefined>(undefined)
+
+function openCreateSkill()      { skillDialogMode.value = 'create'; editingSkill.value = undefined; skillDialogVisible.value = true }
+function openEditSkill(s: Skill){ skillDialogMode.value = 'edit';   editingSkill.value = s;         skillDialogVisible.value = true }
+
+async function saveSkill(data: any) {
+  if (skillDialogMode.value === 'edit' && editingSkill.value) {
+    await skillsStore.update(editingSkill.value.id, data)
+  } else {
+    await skillsStore.create({ ...data, toolSequence: null })
+  }
+  skillDialogVisible.value = false
+}
+
+async function deleteSkill(id: string) {
+  if (confirm('确定删除这个技能？')) await skillsStore.remove(id)
+}
+
+function kwList(s: Skill): string[] {
+  try { return JSON.parse(s.triggerKeywords) } catch { return [] }
+}
 
 const SOUL_TEMPLATE = `# Agent 身份
 
@@ -74,6 +102,7 @@ async function loadStats() {
 
 onMounted(async () => {
   await settings.load()
+  await skillsStore.load()
   if (chat.conversations.length === 0) await chat.loadConversations()
   await loadStats()
 })
@@ -448,6 +477,64 @@ async function importMarkdown() {
         </div>
       </section>
 
+      <!-- ── 技能库 ── -->
+      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <Sparkles class="w-4 h-4 text-amber-500" />
+            <h2 class="text-base font-semibold">技能库</h2>
+            <span v-if="skillsStore.skills.length" class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full">{{ skillsStore.skills.length }}</span>
+          </div>
+          <button @click="openCreateSkill"
+            class="flex items-center gap-1 text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors font-medium">
+            <Plus class="w-3.5 h-3.5" />新建技能
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          技能会在用户输入命中触发关键词时自动激活，将附加指令注入当次对话。对话中调用 3 次以上工具后，AI 会自动提炼技能供你保存。
+        </p>
+
+        <!-- Empty state -->
+        <div v-if="!skillsStore.skills.length" class="text-center py-8 text-gray-400 dark:text-gray-600">
+          <Sparkles class="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p class="text-sm">暂无技能，点击「新建技能」手动创建，或在对话中调用工具后等待 AI 自动提炼</p>
+        </div>
+
+        <!-- Skills list -->
+        <div v-else class="space-y-2">
+          <div v-for="skill in skillsStore.skills" :key="skill.id"
+            class="group flex items-start gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700 transition-colors">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ skill.name }}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded-full"
+                  :class="skill.source === 'auto'
+                    ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'">
+                  {{ skill.source === 'auto' ? 'AI 提炼' : '手动' }}
+                </span>
+                <span class="text-xs text-gray-400">{{ skill.usageCount }} 次</span>
+              </div>
+              <p v-if="skill.description" class="text-xs text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-1">{{ skill.description }}</p>
+              <div class="flex flex-wrap gap-1">
+                <span v-for="kw in kwList(skill)" :key="kw"
+                  class="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-full">
+                  {{ kw }}
+                </span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button @click="openEditSkill(skill)" class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <Pencil class="w-3.5 h-3.5" />
+              </button>
+              <button @click="deleteSkill(skill.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── 界面偏好 ── -->
       <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
         <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">界面偏好</h2>
@@ -559,9 +646,18 @@ async function importMarkdown() {
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.1</div>
+      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.2</div>
     </div>
   </div>
+
+  <!-- Skill create / edit dialog -->
+  <SkillDialog
+    v-if="skillDialogVisible"
+    :mode="skillDialogMode"
+    :skill="editingSkill"
+    @save="saveSkill"
+    @cancel="skillDialogVisible = false"
+  />
 </template>
 
 <script lang="ts">

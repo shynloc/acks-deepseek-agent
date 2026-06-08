@@ -1,23 +1,36 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted } from 'vue'
-import { MessageSquare, BookOpen, ExternalLink, Trash2 } from '@lucide/vue'
+import { MessageSquare, BookOpen, ExternalLink, Trash2, X } from '@lucide/vue'
 import ChatHistory from '@/components/chat/ChatHistory.vue'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import ToolCallBubble from '@/components/chat/ToolCallBubble.vue'
 import ChatInput from '@/components/chat/ChatInput.vue'
 import SaveNoteDialog from '@/components/chat/SaveNoteDialog.vue'
+import SkillDialog from '@/components/skills/SkillDialog.vue'
 import { useChatStore, type Message } from '@/stores/chat'
+import { useSkillsStore } from '@/stores/skills'
 import { useSettingsStore } from '@/stores/settings'
 import type { Note } from '@/stores/notes'
 import { useRouter } from 'vue-router'
 
-const chat = useChatStore()
-const settings = useSettingsStore()
-const router = useRouter()
+const chat       = useChatStore()
+const skills     = useSkillsStore()
+const settings   = useSettingsStore()
+const router     = useRouter()
 const messagesEl = ref<HTMLElement | null>(null)
 
 // Save note dialog state
 const savingMessage = ref<Message | null>(null)
+
+// Skill extract dialog
+const showSkillDialog  = ref(false)
+function openSkillDialog()  { showSkillDialog.value = true }
+function dismissSkillExtract() { chat.pendingSkillExtract = null; showSkillDialog.value = false }
+async function saveExtractedSkill(data: any) {
+  await skills.create({ ...data, toolSequence: null })
+  chat.pendingSkillExtract = null
+  showSkillDialog.value = false
+}
 
 // Session notes (saved in current chat session)
 const sessionNotes = ref<Note[]>([])
@@ -136,6 +149,26 @@ function removeSessionNote(idx: number) {
         </template>
       </div>
 
+      <!-- Skill extract banner -->
+      <Transition name="slide-up">
+        <div v-if="chat.pendingSkillExtract && !showSkillDialog"
+             class="mx-4 mb-2 flex items-center gap-3 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-xl px-4 py-2.5 text-sm">
+          <span class="text-lg">✨</span>
+          <div class="flex-1 min-w-0">
+            <span class="font-medium text-purple-700 dark:text-purple-300">发现可复用技能</span>
+            <span class="text-purple-600 dark:text-purple-400 ml-1 truncate">「{{ chat.pendingSkillExtract.name }}」</span>
+          </div>
+          <button @click="openSkillDialog"
+            class="shrink-0 text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium">
+            保存
+          </button>
+          <button @click="dismissSkillExtract"
+            class="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+      </Transition>
+
       <!-- Input -->
       <ChatInput :initial-text="pendingInput" @consumed="pendingInput = ''" />
     </div>
@@ -203,5 +236,19 @@ function removeSessionNote(idx: number) {
       @saved="onNoteSaved"
       @cancel="savingMessage = null"
     />
+
+    <!-- Skill extract / create dialog -->
+    <SkillDialog
+      v-if="showSkillDialog && chat.pendingSkillExtract"
+      mode="extract"
+      :proposed="chat.pendingSkillExtract"
+      @save="saveExtractedSkill"
+      @cancel="dismissSkillExtract"
+    />
   </div>
 </template>
+
+<style scoped>
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.25s ease; }
+.slide-up-enter-from, .slide-up-leave-to       { opacity: 0; transform: translateY(8px); }
+</style>

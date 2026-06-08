@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useSettingsStore } from './settings'
 import { useToastStore } from './toast'
+import { useSkillsStore, type ProposedSkill } from './skills'
 
 export interface Message {
   id: string
@@ -44,6 +45,7 @@ export const useChatStore = defineStore('chat', () => {
   const isStreaming              = ref(false)
   const currentToolCalls        = ref<ToolCallRecord[]>([])
   const pendingNoteContext       = ref<{ title: string; content: string } | null>(null)
+  const pendingSkillExtract      = ref<ProposedSkill | null>(null)
 
   const currentConversation = computed(() =>
     conversations.value.find(c => c.id === currentConversationId.value) ?? null
@@ -93,7 +95,8 @@ export const useChatStore = defineStore('chat', () => {
   // ── Send message (agent loop) ──────────────────────────────────────────────
 
   async function sendMessage(content: string): Promise<void> {
-    const settings = useSettingsStore()
+    const settings  = useSettingsStore()
+    const skillsStore = useSkillsStore()
     if (!settings.apiKey) throw new Error('请先配置 API Key')
 
     let convId = currentConversationId.value
@@ -113,6 +116,7 @@ export const useChatStore = defineStore('chat', () => {
 
     isStreaming.value = true
     currentToolCalls.value = []
+    pendingSkillExtract.value = null
 
     // Build history (exclude system msgs, keep last 20 user/assistant turns)
     const history = messages.value
@@ -122,6 +126,15 @@ export const useChatStore = defineStore('chat', () => {
 
     // Pop the user message we just added (agent:run adds it itself)
     history.pop()
+
+    // Match skills for this input → inject hints into soul
+    await skillsStore.load()
+    const matchedSkills = skillsStore.matchForInput(content)
+    const skillHints    = skillsStore.buildSystemHintFor(matchedSkills)
+    const soulWithSkills = settings.soulContent + skillHints
+
+    // Increment usage count for matched skills (fire-and-forget)
+    for (const s of matchedSkills) skillsStore.incrementUsage(s.id)
 
     let finalUsage = { promptTokens: 0, completionTokens: 0 }
     let hadError   = false
@@ -170,7 +183,7 @@ export const useChatStore = defineStore('chat', () => {
         message:        content,
         conversationId: convId,
         history,
-        soulContent:    settings.soulContent
+        soulContent:    soulWithSkills
       })
     } catch (e: any) {
       if (!hadError) {
@@ -201,6 +214,14 @@ export const useChatStore = defineStore('chat', () => {
       if (conv2?.title === '新对话' && messages.value.filter(m => m.role === 'user').length === 1) {
         autoTitle(convId!, content, assistantMsg.content)
       }
+
+      // Auto-extract skill when 3+ tool calls were made (fire-and-forget)
+      const toolSnapshot = [...currentToolCalls.value]
+      if (toolSnapshot.length >= 3 && settings.apiKey && assistantMsg.content) {
+        extractSkill(toolSnapshot, assistantMsg.content, settings)
+          .then(proposed => { if (proposed) pendingSkillExtract.value = proposed })
+          .catch(() => {})
+      }
     }
   }
 
@@ -208,6 +229,61 @@ export const useChatStore = defineStore('chat', () => {
     const convId = currentConversationId.value
     if (convId) window.api.agent.abort(convId)
     isStreaming.value = false
+  }
+
+  // ── Skill auto-extract ────────────────────────────────────────────────────
+
+  async function extractSkill(
+    toolCalls: ToolCallRecord[],
+    finalReply: string,
+    settings: ReturnType<typeof useSettingsStore>
+  ): Promise<ProposedSkill | null> {
+    const seq = toolCalls.map(t =>
+      `- ${t.emoji} ${t.name}(${JSON.stringify(t.args)}) → ${t.isError ? '失败' : '成功'}`
+    ).join('\n')
+
+    const prompt = `分析以下 AI 工具调用序列，判断是否值得提炼为可复用技能。
+
+工具调用序列：
+${seq}
+
+最终回复摘要：${finalReply.slice(0, 300)}
+
+如果值得保存为技能，以 JSON 返回（字段如下）；如果不值得，返回 null。
+{
+  "name": "简短技能名称（10字以内）",
+  "description": "一句话说明这个技能能做什么",
+  "trigger_keywords": ["触发词1", "触发词2", "触发词3"],
+  "system_hint": "执行此类任务时，AI 应遵循的额外指令（2-3句）"
+}`
+
+    try {
+      const res = await fetch(`${settings.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${settings.apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 300,
+          stream: false
+        }),
+        signal: AbortSignal.timeout(12000)
+      })
+      if (!res.ok) return null
+      const data  = await res.json()
+      const text  = data.choices?.[0]?.message?.content?.trim() ?? ''
+      const match = text.match(/\{[\s\S]*\}/)
+      if (!match) return null
+      const parsed = JSON.parse(match[0])
+      if (!parsed?.name) return null
+      return {
+        name:             parsed.name,
+        description:      parsed.description ?? '',
+        triggerKeywords:  Array.isArray(parsed.trigger_keywords) ? parsed.trigger_keywords : [],
+        systemHint:       parsed.system_hint ?? '',
+        toolSequenceSummary: toolCalls.map(t => `${t.emoji} ${t.name}`).join(' → ')
+      }
+    } catch { return null }
   }
 
   // ── Auto title ─────────────────────────────────────────────────────────────
@@ -240,7 +316,7 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     conversations, currentConversationId, messages,
-    isStreaming, currentToolCalls, currentConversation, pendingNoteContext,
+    isStreaming, currentToolCalls, pendingSkillExtract, currentConversation, pendingNoteContext,
     loadConversations, createConversation, selectConversation,
     deleteConversation, renameConversation, sendMessage, stopStreaming
   }

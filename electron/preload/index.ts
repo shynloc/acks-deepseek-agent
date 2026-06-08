@@ -39,6 +39,18 @@ const api = {
       list: (noteId: string): Promise<unknown[]> => ipcRenderer.invoke('db:note_versions:list', noteId),
       get: (versionId: string): Promise<unknown> => ipcRenderer.invoke('db:note_versions:get', versionId)
     },
+    skills: {
+      list: (): Promise<unknown[]>                          => ipcRenderer.invoke('db:skills:list'),
+      create: (s: unknown): Promise<unknown>               => ipcRenderer.invoke('db:skills:create', s),
+      update: (id: string, patch: unknown): Promise<void>  => ipcRenderer.invoke('db:skills:update', id, patch),
+      delete: (id: string): Promise<void>                  => ipcRenderer.invoke('db:skills:delete', id)
+    },
+    plugins: {
+      list: (): Promise<unknown[]>                          => ipcRenderer.invoke('db:plugins:list'),
+      create: (p: unknown): Promise<unknown>               => ipcRenderer.invoke('db:plugins:create', p),
+      update: (id: string, patch: unknown): Promise<void>  => ipcRenderer.invoke('db:plugins:update', id, patch),
+      delete: (id: string): Promise<void>                  => ipcRenderer.invoke('db:plugins:delete', id)
+    },
     shortcuts: {
       list: (): Promise<unknown[]> => ipcRenderer.invoke('db:shortcuts:list'),
       add: (noteId: string): Promise<void> => ipcRenderer.invoke('db:shortcuts:add', noteId),
