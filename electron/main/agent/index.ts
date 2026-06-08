@@ -2,6 +2,7 @@ import { ipcMain, type BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { getDatabase } from '../db'
 import '../tools/index'   // trigger self-registration of all builtin tools
+import { loadPluginsFromDb } from '../tools/builtin/plugins'
 import { runAgentLoop, type ChatMessage } from './loop'
 import { toolRegistry } from '../tools/registry'
 
@@ -35,6 +36,7 @@ export function registerAgentIpc(_win: BrowserWindow): void {
     ]
 
     const ctx = { db: getDatabase(), store }
+    loadPluginsFromDb(ctx)   // register any enabled user plugins at run time
 
     await runAgentLoop(messages, ctx, {
       onDelta:      (text)                    => event.sender.send('agent:delta',       text),

@@ -3,10 +3,12 @@ import { onMounted, computed, ref } from 'vue'
 import {
   MessageSquare, FileText, Type, Zap, Key, Sun, Moon,
   CheckCircle, XCircle, Loader, Download, Upload,
-  FolderOpen, FileJson, BookOpen, AlertCircle, Eye, Globe, Bot, Sparkles, Pencil, Trash2, Plus
+  FolderOpen, FileJson, BookOpen, AlertCircle, Eye, Globe, Bot, Sparkles, Pencil, Trash2, Plus, Puzzle, ToggleLeft, ToggleRight
 } from '@lucide/vue'
 import SkillDialog from '@/components/skills/SkillDialog.vue'
+import PluginDialog from '@/components/plugins/PluginDialog.vue'
 import { useSkillsStore, type Skill } from '@/stores/skills'
+import { usePluginsStore, type Plugin } from '@/stores/plugins'
 import { useUIStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
@@ -14,9 +16,31 @@ import ActivityChart from '@/components/ActivityChart.vue'
 
 const uiStore  = useUIStore()
 const settings = useSettingsStore()
-const skillsStore = useSkillsStore()
+const skillsStore   = useSkillsStore()
+const pluginsStore  = usePluginsStore()
 const chat     = useChatStore()
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle')
+
+// ── Plugin management ─────────────────────────────────────────────────────────
+const pluginDialogMode    = ref<'create' | 'edit'>('create')
+const pluginDialogVisible = ref(false)
+const editingPlugin       = ref<Plugin | undefined>(undefined)
+
+function openCreatePlugin()         { pluginDialogMode.value = 'create'; editingPlugin.value = undefined; pluginDialogVisible.value = true }
+function openEditPlugin(p: Plugin)  { pluginDialogMode.value = 'edit';   editingPlugin.value = p;         pluginDialogVisible.value = true }
+
+async function savePlugin(data: any) {
+  if (pluginDialogMode.value === 'edit' && editingPlugin.value) {
+    await pluginsStore.update(editingPlugin.value.id, data)
+  } else {
+    await pluginsStore.create(data)
+  }
+  pluginDialogVisible.value = false
+}
+
+async function deletePlugin(id: string) {
+  if (confirm('确定删除这个插件？删除后 DeepSeek 将无法调用它。')) await pluginsStore.remove(id)
+}
 
 // ── Skills management ─────────────────────────────────────────────────────────
 const skillDialogMode    = ref<'create' | 'edit'>('create')
@@ -103,6 +127,7 @@ async function loadStats() {
 onMounted(async () => {
   await settings.load()
   await skillsStore.load()
+  await pluginsStore.load()
   if (chat.conversations.length === 0) await chat.loadConversations()
   await loadStats()
 })
@@ -535,6 +560,66 @@ async function importMarkdown() {
         </div>
       </section>
 
+      <!-- ── 插件系统 ── -->
+      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <Puzzle class="w-4 h-4 text-blue-500" />
+            <h2 class="text-base font-semibold">插件系统</h2>
+            <span v-if="pluginsStore.plugins.length" class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full">{{ pluginsStore.plugins.length }}</span>
+          </div>
+          <button @click="openCreatePlugin"
+            class="flex items-center gap-1 text-xs px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium">
+            <Plus class="w-3.5 h-3.5" />添加插件
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          通过 HTTP Webhook 扩展 DeepSeek 能力，将任意外部服务（Notion、Slack、自建 API 等）接入 Agent 工具链。
+        </p>
+
+        <!-- Empty state -->
+        <div v-if="!pluginsStore.plugins.length" class="text-center py-8 text-gray-400 dark:text-gray-600">
+          <Puzzle class="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p class="text-sm">暂无插件，点击「添加插件」接入外部服务</p>
+        </div>
+
+        <!-- Plugins list -->
+        <div v-else class="space-y-2">
+          <div v-for="plugin in pluginsStore.plugins" :key="plugin.id"
+            class="group flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 transition-colors"
+            :class="plugin.enabled ? 'hover:border-blue-200 dark:hover:border-blue-700' : 'opacity-60'">
+            <!-- Toggle -->
+            <button @click="pluginsStore.toggle(plugin.id)" class="shrink-0 text-gray-400 transition-colors"
+              :class="plugin.enabled ? 'text-blue-500 hover:text-blue-600' : 'hover:text-gray-600 dark:hover:text-gray-300'">
+              <ToggleRight v-if="plugin.enabled" class="w-5 h-5" />
+              <ToggleLeft  v-else                class="w-5 h-5" />
+            </button>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ plugin.displayName }}</span>
+                <code class="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded font-mono">{{ plugin.name }}</code>
+                <span class="text-xs px-1.5 py-0.5 rounded-full"
+                  :class="plugin.method === 'POST'
+                    ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
+                    : 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400'">
+                  {{ plugin.method }}
+                </span>
+              </div>
+              <p v-if="plugin.description" class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ plugin.description }}</p>
+              <p class="text-[11px] text-gray-400 font-mono truncate mt-0.5">{{ plugin.endpointUrl }}</p>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button @click="openEditPlugin(plugin)" class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <Pencil class="w-3.5 h-3.5" />
+              </button>
+              <button @click="deletePlugin(plugin.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── 界面偏好 ── -->
       <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
         <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">界面偏好</h2>
@@ -646,7 +731,7 @@ async function importMarkdown() {
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.2</div>
+      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.3</div>
     </div>
   </div>
 
@@ -657,6 +742,15 @@ async function importMarkdown() {
     :skill="editingSkill"
     @save="saveSkill"
     @cancel="skillDialogVisible = false"
+  />
+
+  <!-- Plugin create / edit dialog -->
+  <PluginDialog
+    v-if="pluginDialogVisible"
+    :mode="pluginDialogMode"
+    :plugin="editingPlugin"
+    @save="savePlugin"
+    @cancel="pluginDialogVisible = false"
   />
 </template>
 
