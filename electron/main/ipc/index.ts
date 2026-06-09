@@ -1,6 +1,7 @@
 import { ipcMain, dialog, net } from 'electron'
 import Store from 'electron-store'
 import fs from 'fs'
+import { randomUUID } from 'crypto'
 import { getDatabase } from '../db'
 
 const store = new Store()
@@ -164,7 +165,7 @@ export function registerIpcHandlers(): void {
         const note = db.prepare('SELECT title, content FROM notes WHERE id = ?').get(id) as any
         if (note) {
           db.prepare('INSERT INTO note_versions (id, note_id, title, content, saved_at) VALUES (?, ?, ?, ?, ?)')
-            .run(crypto.randomUUID(), id, note.title, note.content, Date.now())
+            .run(randomUUID(), id, note.title, note.content, Date.now())
           // Keep only last 30 versions per note
           db.prepare(`DELETE FROM note_versions WHERE note_id = ? AND id NOT IN (
             SELECT id FROM note_versions WHERE note_id = ? ORDER BY saved_at DESC LIMIT 30
@@ -218,7 +219,7 @@ export function registerIpcHandlers(): void {
     const db = getDatabase()
     const exists = db.prepare('SELECT id FROM shortcuts WHERE note_id = ?').get(noteId)
     if (exists) return
-    const id = crypto.randomUUID()
+    const id = randomUUID()
     const maxOrder = (db.prepare('SELECT MAX(order_index) AS m FROM shortcuts').get() as any)?.m ?? -1
     db.prepare('INSERT INTO shortcuts (id, note_id, order_index, created_at) VALUES (?, ?, ?, ?)').run(id, noteId, maxOrder + 1, Date.now())
   })
@@ -337,7 +338,7 @@ export function registerIpcHandlers(): void {
         const content = h1 ? raw.slice(raw.indexOf('\n') + 1).trim() : raw.trim()
         const chinese = (content.match(/[一-龥]/g) ?? []).length
         const english = (content.match(/\b[a-zA-Z]+\b/g) ?? []).length
-        insert.run({ id: crypto.randomUUID(), title, content, categoryId: null, color: 'none', wordCount: chinese + english, createdAt: Date.now(), updatedAt: Date.now() })
+        insert.run({ id: randomUUID(), title, content, categoryId: null, color: 'none', wordCount: chinese + english, createdAt: Date.now(), updatedAt: Date.now() })
         count++
       }
     })

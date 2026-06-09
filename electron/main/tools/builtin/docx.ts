@@ -12,10 +12,10 @@ import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   Table, TableRow, TableCell, WidthType, BorderStyle,
   AlignmentType, ShadingType, PageOrientation,
-  Header, Footer, PageNumber, NumberFormat,
-  Tab, TabStopType, TabStopLeader,
+  Header, Footer, PageNumber, PageNumberElement,
+  Tab, TabStopType,
   convertInchesToTwip, convertMillimetersToTwip,
-  UnderlineType, TableLayoutType
+  TableLayoutType
 } from 'docx'
 import { toolRegistry } from '../registry'
 
@@ -450,7 +450,7 @@ toolRegistry.register({
                 children: [
                   run(d.title_en.toUpperCase(), { font: T.fMono, size: T.meta, color: T.ink3, allCaps: true }),
                   run('  ', {}),
-                  new TextRun({ children: [new PageNumber()], size: T.meta, font: { name: T.fMono } })
+                  new TextRun({ children: [new PageNumberElement()], size: T.meta, font: { name: T.fMono } })
                 ]
               })]
             })

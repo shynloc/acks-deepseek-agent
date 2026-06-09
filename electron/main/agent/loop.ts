@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import { randomUUID } from 'crypto'
 import { toolRegistry, type ToolContext } from '../tools/registry'
 import { ToolGuardrails } from './guardrails'
 
@@ -224,7 +225,7 @@ async function parseStream(
   }
 
   const toolCalls: ToolCall[] = [...tcBufs.values()].map(buf => ({
-    id:       buf.id || crypto.randomUUID(),
+    id:       buf.id || randomUUID(),
     type:     'function',
     function: { name: buf.name, arguments: buf.args }
   }))

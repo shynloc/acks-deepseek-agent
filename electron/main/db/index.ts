@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import { schema } from './schema'
 
 let db: Database.Database | null = null
@@ -25,7 +26,7 @@ function seedBuiltinSkills(db: Database.Database): void {
     INSERT INTO skills (id, name, description, trigger_keywords, system_hint, tool_sequence, usage_count, source, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, 0, 'builtin', ?, ?)
   `).run(
-    crypto.randomUUID(),
+    randomUUID(),
     '专业文档生成',
     '触发后指导 DeepSeek 使用设计规范工具生成漂亮的 A4 文档、Excel 工作簿',
     JSON.stringify(['报告', '提案', '文档', '分析报告', 'Word文档', '季度报告', 'Excel', '工作簿', '数据表', '生成文档', '制作文档', '写报告']),
