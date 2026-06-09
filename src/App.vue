@@ -64,9 +64,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <AppBanner />
     <main class="flex-1 overflow-hidden">
       <RouterView v-slot="{ Component }">
-        <Transition name="page" mode="out-in">
+        <KeepAlive>
           <component :is="Component" />
-        </Transition>
+        </KeepAlive>
       </RouterView>
     </main>
     <GlobalSearch v-if="showGlobalSearch" @close="showGlobalSearch = false" />

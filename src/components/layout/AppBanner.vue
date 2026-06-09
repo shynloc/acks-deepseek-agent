@@ -28,10 +28,10 @@ const appIcon = computed(() => uiStore.isDark ? iconDark : iconLight)
 
 <template>
   <header
-    class="flex items-center justify-between h-14 border-b border-zinc-200 dark:border-zinc-800
+    class="grid grid-cols-[1fr_auto_1fr] items-center h-14 border-b border-zinc-200 dark:border-zinc-800
            bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-sm flex-none select-none
            transition-colors duration-200 pr-4"
-    :class="isMac ? 'pl-[84px]' : 'px-4'"
+    :class="isMac ? 'pl-[84px]' : 'pl-4'"
     style="-webkit-app-region: drag"
   >
     <!-- Left: Logo + Name -->
@@ -42,7 +42,7 @@ const appIcon = computed(() => uiStore.isDark ? iconDark : iconLight)
       </span>
     </div>
 
-    <!-- Center: Tabs -->
+    <!-- Center: Tabs (always exactly centered) -->
     <nav class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl p-1" style="-webkit-app-region: no-drag">
       <button
         v-for="tab in tabs"
@@ -59,7 +59,7 @@ const appIcon = computed(() => uiStore.isDark ? iconDark : iconLight)
     </nav>
 
     <!-- Right: Controls -->
-    <div class="flex items-center gap-2" style="-webkit-app-region: no-drag">
+    <div class="flex items-center justify-end gap-2" style="-webkit-app-region: no-drag">
       <button
         @click="uiStore.toggleTheme()"
         class="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400
