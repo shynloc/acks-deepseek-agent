@@ -45,31 +45,64 @@ export async function runAgentLoop(
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
   let totalUsage = { promptTokens: 0, completionTokens: 0 }
+  const MAX_STREAM_RETRIES = 2
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-    // ── Stream one LLM turn ──────────────────────────────────────────────────
-    let response: Response
-    try {
-      response = await net.fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens, temperature }),
-        signal: callbacks.signal as RequestInit['signal']
-      })
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return
-      callbacks.onError(e?.message ?? '网络请求失败')
+    // ── Stream one LLM turn (with retry on dropped connection) ───────────────
+    let textContent    = ''
+    let toolCalls: ToolCall[] = []
+    let finishReason: string | null = null
+    let usage = { promptTokens: 0, completionTokens: 0 }
+
+    for (let retry = 0; retry <= MAX_STREAM_RETRIES; retry++) {
+      let response: Response
+      try {
+        response = await net.fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens, temperature }),
+          signal: callbacks.signal as RequestInit['signal']
+        })
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return
+        if (retry < MAX_STREAM_RETRIES) continue   // network error → retry
+        callbacks.onError(e?.message ?? '网络请求失败')
+        return
+      }
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => response.statusText)
+        callbacks.onError(`API ${response.status}: ${errText.slice(0, 200)}`)
+        return
+      }
+
+      const parsed = await parseStream(response, callbacks)
+      textContent  = parsed.textContent
+      toolCalls    = parsed.toolCalls
+      finishReason = parsed.finishReason
+      usage        = parsed.usage
+
+      // Stream ended cleanly, or we have valid tool calls → proceed
+      if (parsed.streamComplete || toolCalls.length) break
+
+      // Stream dropped mid-response (no [DONE], no finish_reason)
+      if (retry < MAX_STREAM_RETRIES) {
+        // Clear the partial text delta visually and retry silently
+        if (textContent) {
+          // Erase what was streamed so far with a backspace-equivalent reset
+          callbacks.onDelta('')   // signal renderer to clear streaming content
+        }
+        textContent = ''
+        await new Promise(r => setTimeout(r, 800 * (retry + 1)))  // brief back-off
+        continue
+      }
+
+      // Exhausted retries: surface the error
+      callbacks.onDelta('\n\n> ⚠️ 连接在响应中途中断，请重试。')
+      callbacks.onDone(totalUsage)
       return
     }
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => response.statusText)
-      callbacks.onError(`API ${response.status}: ${errText.slice(0, 200)}`)
-      return
-    }
-
-    // ── Parse streaming response (buffer tool_calls JSON fragments) ──────────
-    const { textContent, toolCalls, usage, finishReason } = await parseStream(response, callbacks)
     totalUsage.promptTokens     += usage.promptTokens
     totalUsage.completionTokens += usage.completionTokens
 
@@ -168,30 +201,36 @@ async function runFinalTurn(
 async function parseStream(
   response: Response,
   callbacks: AgentCallbacks
-): Promise<{ textContent: string; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number }; finishReason: string | null }> {
+): Promise<{
+  textContent:    string
+  toolCalls:      ToolCall[]
+  usage:          { promptTokens: number; completionTokens: number }
+  finishReason:   string | null
+  streamComplete: boolean   // true only if stream ended with [DONE] or a finish_reason
+}> {
   const reader  = response.body!.getReader()
   const decoder = new TextDecoder()
 
-  let textContent  = ''
-  let finishReason = null as string | null
-  // index → accumulated buffer
+  let textContent    = ''
+  let finishReason   = null as string | null
+  let streamComplete = false
   const tcBufs = new Map<number, { id: string; name: string; args: string }>()
-  let usage = { promptTokens: 0, completionTokens: 0 }
+  let usage     = { promptTokens: 0, completionTokens: 0 }
   let remainder = ''
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    const raw = remainder + decoder.decode(value, { stream: true })
+    const raw   = remainder + decoder.decode(value, { stream: true })
     const lines = raw.split('\n')
-    remainder = lines.pop() ?? ''  // last incomplete line held for next chunk
+    remainder   = lines.pop() ?? ''   // last incomplete line held for next chunk
 
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed.startsWith('data: ')) continue
       const data = trimmed.slice(6)
-      if (data === '[DONE]') continue
+      if (data === '[DONE]') { streamComplete = true; continue }
 
       try {
         const json  = JSON.parse(data)
@@ -203,7 +242,7 @@ async function parseStream(
         }
 
         const fr = json.choices?.[0]?.finish_reason
-        if (fr) finishReason = fr
+        if (fr) { finishReason = fr; streamComplete = true }
 
         // Buffer fragmented tool_call JSON arguments
         if (delta?.tool_calls) {
@@ -230,5 +269,5 @@ async function parseStream(
     function: { name: buf.name, arguments: buf.args }
   }))
 
-  return { textContent, toolCalls: toolCalls.filter(t => t.function.name), usage, finishReason }
+  return { textContent, toolCalls: toolCalls.filter(t => t.function.name), usage, finishReason, streamComplete }
 }

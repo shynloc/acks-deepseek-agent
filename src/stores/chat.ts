@@ -184,7 +184,12 @@ export const useChatStore = defineStore('chat', () => {
 
     // Register IPC event listeners
     const offDelta = window.api.agent.onDelta(text => {
-      assistantMsg.content += text
+      if (text === '') {
+        // Empty string is a retry signal: clear partial content and reset
+        assistantMsg.content = ''
+      } else {
+        assistantMsg.content += text
+      }
       messages.value = [...messages.value]
     })
 
