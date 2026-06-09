@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
-import { MessageSquare, BookOpen, ExternalLink, Trash2, X } from '@lucide/vue'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
+import { MessageSquare, BookOpen, ExternalLink, Trash2, X, FileText, FileSpreadsheet, FolderOpen } from '@lucide/vue'
 import ChatHistory from '@/components/chat/ChatHistory.vue'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import ToolCallBubble from '@/components/chat/ToolCallBubble.vue'
 import ChatInput from '@/components/chat/ChatInput.vue'
 import SaveNoteDialog from '@/components/chat/SaveNoteDialog.vue'
 import SkillDialog from '@/components/skills/SkillDialog.vue'
-import { useChatStore, type Message } from '@/stores/chat'
+import { useChatStore, type Message, type Artifact } from '@/stores/chat'
 import { useSkillsStore } from '@/stores/skills'
 import { useSettingsStore } from '@/stores/settings'
 import type { Note } from '@/stores/notes'
@@ -81,6 +81,16 @@ function openNoteInNotebook() {
 function removeSessionNote(idx: number) {
   sessionNotes.value.splice(idx, 1)
 }
+
+// Artifacts helpers
+function artifactIcon(kind: Artifact['kind']) {
+  return kind === 'xlsx' ? FileSpreadsheet : FileText
+}
+function artifactLabel(kind: Artifact['kind']) {
+  return ({ docx: 'Word', xlsx: 'Excel', html: 'HTML', md: 'Markdown', txt: '文本', file: '文件' })[kind] ?? '文件'
+}
+async function openArtifact(a: Artifact)       { await window.api.shell.openPath(a.filePath) }
+async function showArtifactFolder(a: Artifact) { await window.api.shell.showItemInFolder(a.filePath) }
 </script>
 
 <template>
@@ -144,6 +154,7 @@ function removeSessionNote(idx: number) {
           <MessageBubble
             :message="msg"
             :is-streaming="chat.isStreaming && i === chat.messages.length - 1 && msg.role === 'assistant'"
+            :artifacts="msg.role === 'assistant' ? chat.sessionArtifacts.filter(a => !a.msgId || a.msgId === msg.id) : undefined"
             @save-to-notebook="onSaveToNotebook"
           />
         </template>
@@ -173,53 +184,86 @@ function removeSessionNote(idx: number) {
       <ChatInput :initial-text="pendingInput" @consumed="pendingInput = ''" />
     </div>
 
-    <!-- Right: Session bookmarks -->
-    <aside class="w-52 flex-none border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50 dark:bg-zinc-900/60">
-      <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-          <BookOpen class="w-3.5 h-3.5 text-blue-500" />本次书签
+    <!-- Right: Session bookmarks + artifacts -->
+    <aside class="w-52 flex-none border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50 dark:bg-zinc-900/60 overflow-y-auto">
+
+      <!-- Artifacts section -->
+      <div v-if="chat.sessionArtifacts.length">
+        <div class="px-3 pt-3 pb-2 flex items-center justify-between">
+          <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide flex items-center gap-1">
+            <FileText class="w-3 h-3" />本次产物
+          </span>
+          <span class="text-xs text-zinc-400">{{ chat.sessionArtifacts.length }}</span>
+        </div>
+        <div class="px-2 pb-2 space-y-1">
+          <div
+            v-for="a in chat.sessionArtifacts"
+            :key="a.id"
+            class="group flex items-center gap-2 bg-white dark:bg-zinc-800 rounded-lg px-2.5 py-2 border border-zinc-100 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+          >
+            <component :is="artifactIcon(a.kind)" class="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] font-medium text-zinc-800 dark:text-zinc-200 truncate">{{ a.name }}</div>
+              <div class="text-[10px] text-zinc-400">{{ artifactLabel(a.kind) }}</div>
+            </div>
+            <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="p-0.5 rounded text-zinc-400 hover:text-blue-500 transition-colors" title="打开" @click="openArtifact(a)">
+                <ExternalLink class="w-3 h-3" />
+              </button>
+              <button class="p-0.5 rounded text-zinc-400 hover:text-zinc-600 transition-colors" title="显示文件夹" @click="showArtifactFolder(a)">
+                <FolderOpen class="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mx-3 border-t border-zinc-200 dark:border-zinc-700 mb-1" />
+      </div>
+
+      <!-- Bookmarks section header -->
+      <div class="px-3 pt-2 pb-2 flex items-center justify-between">
+        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide flex items-center gap-1">
+          <BookOpen class="w-3 h-3 text-blue-500" />笔记书签
         </span>
-        <span v-if="sessionNotes.length" class="text-xs text-zinc-400">{{ sessionNotes.length }} 篇</span>
+        <span v-if="sessionNotes.length" class="text-xs text-zinc-400">{{ sessionNotes.length }}</span>
       </div>
 
       <!-- Empty state -->
-      <div v-if="!sessionNotes.length" class="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-600 p-4">
+      <div v-if="!sessionNotes.length && !chat.sessionArtifacts.length" class="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-600 p-4">
         <BookOpen class="w-7 h-7 opacity-40" />
         <p class="text-xs text-center leading-relaxed">
           悬停在 AI 回复上，点击「存入笔记」将内容保存至笔记本
         </p>
       </div>
+      <div v-else-if="!sessionNotes.length" class="px-3 pb-3">
+        <p class="text-[11px] text-zinc-400 dark:text-zinc-600 text-center">暂无笔记书签</p>
+      </div>
 
       <!-- Saved notes list -->
-      <div v-else class="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div v-if="sessionNotes.length" class="px-2 pb-2 space-y-1.5">
         <div
           v-for="(note, idx) in sessionNotes"
           :key="note.id"
-          class="group bg-white dark:bg-gray-800 rounded-xl p-2.5 border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+          class="group bg-white dark:bg-zinc-800 rounded-xl p-2.5 border border-zinc-100 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
         >
           <div class="flex items-start justify-between gap-1 mb-1">
-            <span class="text-xs font-medium text-gray-900 dark:text-gray-100 leading-snug line-clamp-2">{{ note.title }}</span>
+            <span class="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">{{ note.title }}</span>
             <div class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                class="p-0.5 rounded text-gray-400 hover:text-blue-500 transition-colors"
-                title="在笔记本中查看"
-                @click="openNoteInNotebook"
-              ><ExternalLink class="w-3 h-3" /></button>
-              <button
-                class="p-0.5 rounded text-gray-400 hover:text-red-500 transition-colors"
-                title="从列表移除"
-                @click="removeSessionNote(idx)"
-              ><Trash2 class="w-3 h-3" /></button>
+              <button class="p-0.5 rounded text-zinc-400 hover:text-blue-500 transition-colors" title="在笔记本中查看" @click="openNoteInNotebook">
+                <ExternalLink class="w-3 h-3" />
+              </button>
+              <button class="p-0.5 rounded text-zinc-400 hover:text-red-500 transition-colors" title="从列表移除" @click="removeSessionNote(idx)">
+                <Trash2 class="w-3 h-3" />
+              </button>
             </div>
           </div>
-          <p class="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">
+          <p class="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
             {{ note.content.replace(/^#{1,6}\s+/gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\n+/g, ' ').trim().slice(0, 80) }}
           </p>
         </div>
       </div>
 
       <!-- Jump to notebook -->
-      <div v-if="sessionNotes.length" class="p-2 border-t border-zinc-200 dark:border-zinc-800">
+      <div v-if="sessionNotes.length" class="p-2 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
         <button
           class="w-full text-xs text-center py-1.5 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors font-medium"
           @click="openNoteInNotebook"

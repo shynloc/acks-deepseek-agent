@@ -12,6 +12,15 @@ export interface MessageAttachment {
   isOcr?:      boolean
 }
 
+export interface Artifact {
+  id:       string
+  name:     string        // filename
+  filePath: string        // absolute local path
+  kind:     'docx' | 'xlsx' | 'html' | 'md' | 'txt' | 'file'
+  msgId?:   string        // which assistant message created it
+  createdAt: number
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -56,6 +65,8 @@ export const useChatStore = defineStore('chat', () => {
   const currentToolCalls        = ref<ToolCallRecord[]>([])
   const pendingNoteContext       = ref<{ title: string; content: string } | null>(null)
   const pendingSkillExtract      = ref<ProposedSkill | null>(null)
+  // Artifacts generated in current session (in-memory, reset on conversation switch)
+  const sessionArtifacts         = ref<Artifact[]>([])
 
   const currentConversation = computed(() =>
     conversations.value.find(c => c.id === currentConversationId.value) ?? null
@@ -85,6 +96,11 @@ export const useChatStore = defineStore('chat', () => {
   async function selectConversation(id: string): Promise<void> {
     currentConversationId.value = id
     messages.value = await window.api.db.messages.list(id) as Message[]
+    sessionArtifacts.value = []
+  }
+
+  function addArtifact(a: Omit<Artifact, 'id' | 'createdAt'>): void {
+    sessionArtifacts.value.unshift({ ...a, id: genId(), createdAt: Date.now() })
   }
 
   async function deleteConversation(id: string): Promise<void> {
@@ -93,6 +109,7 @@ export const useChatStore = defineStore('chat', () => {
     if (currentConversationId.value === id) {
       currentConversationId.value = null
       messages.value = []
+      sessionArtifacts.value = []
     }
   }
 
@@ -188,6 +205,11 @@ export const useChatStore = defineStore('chat', () => {
         rec.status  = tr.isError ? 'error' : 'done'
         currentToolCalls.value = [...currentToolCalls.value]
       }
+      // Parse file artifacts from tool results (✅ success messages containing file paths)
+      if (!tr.isError && tr.result) {
+        const artifact = parseArtifactFromResult(tr.name, tr.result)
+        if (artifact) addArtifact(artifact)
+      }
     })
 
     const offDone = window.api.agent.onDone(usage => {
@@ -233,10 +255,11 @@ export const useChatStore = defineStore('chat', () => {
       const conv = conversations.value.find(c => c.id === convId)
       if (conv) conv.updatedAt = now
 
-      // Auto-title on first exchange
+      // Auto-title: trigger on 2nd exchange (title is more meaningful with 2 rounds)
       const conv2 = conversations.value.find(c => c.id === convId)
-      if (conv2?.title === '新对话' && messages.value.filter(m => m.role === 'user').length === 1) {
-        autoTitle(convId!, content || apiContent, assistantMsg.content)
+      const userCount = messages.value.filter(m => m.role === 'user').length
+      if (conv2?.title === '新对话' && userCount === 2) {
+        autoTitle(convId!, messages.value, assistantMsg.content)
       }
 
       // Auto-extract skill when 3+ tool calls were made (fire-and-forget)
@@ -310,20 +333,43 @@ ${seq}
     } catch { return null }
   }
 
+  // ── Parse file artifact from tool result text ──────────────────────────────
+
+  function parseArtifactFromResult(toolName: string, result: string): Omit<Artifact, 'id' | 'createdAt'> | null {
+    // Match patterns like: 文件：filename.docx  or  文件：/Users/.../filename.xlsx
+    const fileMatch = result.match(/文件[路径]?[：:]\s*(.+\.(docx|xlsx|html|md|txt|csv|json|pdf))/i)
+    if (!fileMatch) return null
+    const rawName = fileMatch[1].trim()
+    // Could be just a filename or a full path
+    const name = rawName.includes('/') ? rawName.split('/').pop()! : rawName
+    const ext  = (name.split('.').pop() ?? 'file').toLowerCase()
+    const kind = (['docx','xlsx','html','md','txt'].includes(ext) ? ext : 'file') as Artifact['kind']
+    // Reconstruct path: if it's just a filename, assume Desktop
+    const filePath = rawName.startsWith('/') ? rawName
+      : `/Users/${process.env.USER || 'user'}/Desktop/${name}`
+    return { name, filePath, kind }
+  }
+
   // ── Auto title ─────────────────────────────────────────────────────────────
 
-  async function autoTitle(convId: string, userMsg: string, assistantReply: string): Promise<void> {
+  async function autoTitle(convId: string, msgs: Message[], assistantReply: string): Promise<void> {
     const settings = useSettingsStore()
     if (!settings.apiKey) return
+    // Build context from last 2 rounds
+    const context = msgs
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .slice(-4)
+      .map(m => `${m.role === 'user' ? '用户' : 'AI'}：${(m.displayText ?? m.content).slice(0, 150)}`)
+      .join('\n')
     try {
       const res = await fetch(`${settings.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${settings.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-chat',
           messages: [{
             role: 'user',
-            content: `根据以下对话内容，生成一个简洁的标题（10字以内，不加引号）：\n用户：${userMsg.slice(0, 200)}\nAI：${assistantReply.slice(0, 200)}`
+            content: `根据以下对话，生成一个简洁标题（10字以内，不加引号，不加标点）：\n${context}`
           }],
           max_tokens: 30,
           stream: false
@@ -332,7 +378,7 @@ ${seq}
       })
       if (res.ok) {
         const data  = await res.json()
-        const title = (data.choices?.[0]?.message?.content?.trim() ?? '').slice(0, 30)
+        const title = (data.choices?.[0]?.message?.content?.trim() ?? '').replace(/["""''「」《》【】]/g, '').slice(0, 20)
         if (title) await renameConversation(convId, title)
       }
     } catch { /* silent */ }
@@ -341,7 +387,8 @@ ${seq}
   return {
     conversations, currentConversationId, messages,
     isStreaming, currentToolCalls, pendingSkillExtract, currentConversation, pendingNoteContext,
+    sessionArtifacts,
     loadConversations, createConversation, selectConversation,
-    deleteConversation, renameConversation, sendMessage, stopStreaming
+    deleteConversation, renameConversation, sendMessage, stopStreaming, addArtifact
   }
 })

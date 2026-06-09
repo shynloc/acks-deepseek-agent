@@ -3,13 +3,23 @@ import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
-import { BookmarkPlus, Copy, Check, FileText, ImageIcon } from '@lucide/vue'
-import type { Message } from '@/stores/chat'
+import { BookmarkPlus, Copy, Check, FileText, ImageIcon, FileSpreadsheet, FolderOpen, ExternalLink } from '@lucide/vue'
+import type { Message, Artifact } from '@/stores/chat'
 import avatarDark  from '@/assets/avatar/agent-dark.png'
 import avatarLight from '@/assets/avatar/agent-light.png'
 
-const props = defineProps<{ message: Message; isStreaming?: boolean }>()
+const props = defineProps<{
+  message:     Message
+  isStreaming?: boolean
+  artifacts?:  Artifact[]   // artifacts linked to this assistant message
+}>()
 const emit = defineEmits<{ 'save-to-notebook': [message: Message] }>()
+
+// ── YouTube embed helper ─────────────────────────────────────────────────────
+function ytId(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
+  return m ? m[1] : null
+}
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -21,6 +31,18 @@ marked.use({
       const highlighted = hljs.highlight(code, { language }).value
       const langLabel = lang ? `<span class="code-lang">${lang}</span>` : ''
       return `<pre class="code-block">${langLabel}<code class="hljs language-${language}">${highlighted}</code></pre>`
+    },
+    // Render images inline
+    image(href: string, _title: string | null, alt: string) {
+      return `<img src="${href}" alt="${alt}" class="chat-img rounded-lg max-w-full my-2 border border-zinc-200 dark:border-zinc-700" loading="lazy" />`
+    },
+    // Detect YouTube links and convert to embed
+    link(href: string, _title: string | null, text: string) {
+      const vid = ytId(href)
+      if (vid) {
+        return `<div class="yt-embed my-2 rounded-xl overflow-hidden" style="position:relative;padding-bottom:56.25%;height:0"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`
+      }
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">${text}</a>`
     }
   }
 })
@@ -28,18 +50,35 @@ marked.use({
 const renderedContent = computed(() => {
   if (props.message.role === 'user') return ''
   const raw = marked.parse(props.message.content) as string
-  return DOMPurify.sanitize(raw)
+  return DOMPurify.sanitize(raw, {
+    ADD_TAGS: ['iframe'],
+    ADD_ATTR: ['allowfullscreen', 'frameborder', 'loading', 'src', 'style', 'target', 'rel']
+  })
 })
 
-const isUser       = computed(() => props.message.role === 'user')
-const bubbleText   = computed(() => props.message.displayText ?? props.message.content)
+const isUser         = computed(() => props.message.role === 'user')
+const bubbleText     = computed(() => props.message.displayText ?? props.message.content)
 const hasAttachments = computed(() => !!props.message.attachments?.length)
+const hasArtifacts   = computed(() => !!props.artifacts?.length)
 
 const copied = ref(false)
 async function copyContent() {
   await navigator.clipboard.writeText(props.message.content)
   copied.value = true
   setTimeout(() => { copied.value = false }, 1500)
+}
+
+function artifactIcon(kind: Artifact['kind']) {
+  return kind === 'xlsx' ? FileSpreadsheet : FileText
+}
+function artifactLabel(kind: Artifact['kind']) {
+  return ({ docx: 'Word', xlsx: 'Excel', html: 'HTML', md: 'Markdown', txt: '文本', file: '文件' })[kind] ?? '文件'
+}
+async function openArtifact(a: Artifact) {
+  await window.api.shell.openPath(a.filePath)
+}
+async function showArtifactFolder(a: Artifact) {
+  await window.api.shell.showItemInFolder(a.filePath)
 }
 </script>
 
@@ -119,6 +158,31 @@ async function copyContent() {
             <Copy v-else class="w-3 h-3" />
             {{ copied ? '已复制' : '复制' }}
           </button>
+        </div>
+
+        <!-- File artifact cards -->
+        <div v-if="hasArtifacts" class="mt-2 flex flex-col gap-1.5">
+          <div
+            v-for="a in artifacts"
+            :key="a.id"
+            class="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs"
+          >
+            <component :is="artifactIcon(a.kind)" class="w-4 h-4 text-blue-500 shrink-0" />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-zinc-800 dark:text-zinc-200 truncate">{{ a.name }}</div>
+              <div class="text-zinc-400 text-[10px]">{{ artifactLabel(a.kind) }} · 已保存到桌面</div>
+            </div>
+            <button
+              class="shrink-0 px-2 py-0.5 rounded text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors font-medium"
+              title="打开文件"
+              @click="openArtifact(a)"
+            >打开</button>
+            <button
+              class="shrink-0 p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+              title="显示文件夹"
+              @click="showArtifactFolder(a)"
+            ><FolderOpen class="w-3.5 h-3.5" /></button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { ipcMain, dialog, net } from 'electron'
+import { ipcMain, dialog, net, shell } from 'electron'
 import Store from 'electron-store'
 import fs from 'fs'
 import { randomUUID } from 'crypto'
@@ -473,6 +473,11 @@ export function registerIpcHandlers(): void {
       return { ok: false, error: e?.message ?? String(e) }
     }
   })
+
+  // ── Shell ─────────────────────────────────────────────────────────────────
+  ipcMain.handle('shell:openPath',         (_, p: string)   => shell.openPath(p))
+  ipcMain.handle('shell:showItemInFolder', (_, p: string)   => { shell.showItemInFolder(p); return true })
+  ipcMain.handle('shell:openExternal',     (_, url: string) => shell.openExternal(url))
 }
 
 function attachTags(db: any, notes: any[]): any[] {

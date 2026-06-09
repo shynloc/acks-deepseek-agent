@@ -109,6 +109,11 @@ const api = {
       return () => ipcRenderer.removeListener('agent:error', h)
     }
   },
+  shell: {
+    openPath:          (p: string) => ipcRenderer.invoke('shell:openPath', p),
+    showItemInFolder:  (p: string) => ipcRenderer.invoke('shell:showItemInFolder', p),
+    openExternal:      (url: string) => ipcRenderer.invoke('shell:openExternal', url)
+  },
   versions: {
     node: process.versions.node,
     chrome: process.versions.chrome,
