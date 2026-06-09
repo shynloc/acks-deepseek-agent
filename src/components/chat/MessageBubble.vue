@@ -5,6 +5,8 @@ import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import { BookmarkPlus, Copy, Check, FileText, ImageIcon } from '@lucide/vue'
 import type { Message } from '@/stores/chat'
+import avatarDark  from '@/assets/avatar/agent-dark.png'
+import avatarLight from '@/assets/avatar/agent-light.png'
 
 const props = defineProps<{ message: Message; isStreaming?: boolean }>()
 const emit = defineEmits<{ 'save-to-notebook': [message: Message] }>()
@@ -78,8 +80,9 @@ async function copyContent() {
     <!-- Assistant message: full-width document style -->
     <div v-else class="flex gap-3 w-full">
       <!-- Avatar -->
-      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-none mt-0.5 shadow-sm shrink-0">
-        <span class="text-white text-[10px] font-bold">DS</span>
+      <div class="w-8 h-8 rounded-lg overflow-hidden flex-none mt-0.5 shrink-0 shadow-sm">
+        <img :src="avatarLight" class="w-full h-full object-cover block dark:hidden" alt="Agent" />
+        <img :src="avatarDark"  class="w-full h-full object-cover hidden dark:block" alt="Agent" />
       </div>
 
       <div class="flex-1 min-w-0">
