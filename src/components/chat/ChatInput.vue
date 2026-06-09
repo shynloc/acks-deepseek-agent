@@ -98,7 +98,9 @@ async function send(): Promise<void> {
 }
 
 function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  if (e.key !== 'Enter' || e.isComposing) return
+  if (e.shiftKey) { e.preventDefault(); send(); return }
+  // plain Enter → let the browser insert a newline (default behavior)
 }
 
 // ── File attachment ───────────────────────────────────────────────────────────
@@ -303,7 +305,7 @@ function removeInjectedNote(noteId: string) {
             @input="autoResize"
             @keydown="onKeydown"
             rows="1"
-            placeholder="在这里输入消息… (Shift+Enter 换行)"
+            placeholder="在这里输入消息… (Shift+Enter 发送)"
             :disabled="chat.isStreaming"
             class="w-full bg-transparent outline-none resize-none text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed select-text disabled:opacity-50"
             style="max-height: 160px"
