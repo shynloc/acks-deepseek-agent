@@ -118,11 +118,39 @@ function heading3(text: string): Paragraph {
   })
 }
 
+// ── Inline Markdown → TextRun[] ──────────────────────────────────────────────
+// Handles: **bold**, *italic*, `code`, and plain text segments
+function inlineRuns(text: string, base: { font?: string; size?: number; color?: string } = {}): TextRun[] {
+  const runs: TextRun[] = []
+  // Order matters: match ** before * to avoid partial match
+  const pattern = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`/g
+  let lastIndex = 0
+  let m: RegExpExecArray | null
+
+  while ((m = pattern.exec(text)) !== null) {
+    if (m.index > lastIndex) {
+      runs.push(run(text.slice(lastIndex, m.index), base))
+    }
+    if (m[1] !== undefined) {
+      runs.push(run(m[1], { ...base, bold: true }))
+    } else if (m[2] !== undefined) {
+      runs.push(run(m[2], { ...base, italic: true }))
+    } else if (m[3] !== undefined) {
+      runs.push(run(m[3], { ...base, font: T.fMono }))
+    }
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < text.length) {
+    runs.push(run(text.slice(lastIndex), base))
+  }
+  return runs.length > 0 ? runs : [run(text, base)]
+}
+
 function bodyPara(text: string): Paragraph {
   return new Paragraph({
     spacing: { before: 0, after: 100 },
     alignment: AlignmentType.JUSTIFIED,
-    children: [run(text, { font: T.fZh, size: T.body })]
+    children: inlineRuns(text, { font: T.fZh, size: T.body })
   })
 }
 
@@ -130,7 +158,7 @@ function bulletPara(text: string): Paragraph {
   return new Paragraph({
     bullet: { level: 0 },
     spacing: { before: 20, after: 20 },
-    children: [run(text, { font: T.fZh, size: T.body })]
+    children: inlineRuns(text, { font: T.fZh, size: T.body })
   })
 }
 
@@ -239,12 +267,15 @@ function parseMdToParagraphs(md: string): (Paragraph | Table)[] {
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
-    if (trimmed.startsWith('### '))      { result.push(heading3(trimmed.slice(4))); continue }
-    if (trimmed.startsWith('## '))       { result.push(heading2(trimmed.slice(3))); continue }
-    if (trimmed.match(/^[-*]\s+/))       { result.push(bulletPara(trimmed.replace(/^[-*]\s+/, ''))); continue }
-    // Inline bold/italic stripping for plain paragraph (basic)
-    const plain = trimmed.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').replace(/`(.+?)`/g, '$1')
-    result.push(bodyPara(plain))
+    if (trimmed.startsWith('### '))  { result.push(heading3(trimmed.slice(4))); continue }
+    if (trimmed.startsWith('## '))   { result.push(heading2(trimmed.slice(3))); continue }
+    // Bullet: starts with "- ", "* ", "• " (but not **bold**)
+    if (/^[-•]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
+      result.push(bulletPara(trimmed.replace(/^[-•*]\s+/, '')))
+      continue
+    }
+    // Body paragraph: inline runs handle **bold**, *italic*, `code`
+    result.push(bodyPara(trimmed))
   }
   return result
 }
