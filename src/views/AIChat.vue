@@ -25,10 +25,13 @@ const savingMessage = ref<Message | null>(null)
 // Skill extract dialog
 const showSkillDialog  = ref(false)
 function openSkillDialog()  { showSkillDialog.value = true }
-function dismissSkillExtract() { chat.pendingSkillExtract = null; showSkillDialog.value = false }
+function dismissSkillExtract() {
+  chat.markSkillDone(chat.currentConversationId)
+  showSkillDialog.value = false
+}
 async function saveExtractedSkill(data: any) {
   await skills.create({ ...data, toolSequence: null })
-  chat.pendingSkillExtract = null
+  chat.markSkillDone(chat.currentConversationId)
   showSkillDialog.value = false
 }
 

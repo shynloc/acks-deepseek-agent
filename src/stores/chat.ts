@@ -65,6 +65,8 @@ export const useChatStore = defineStore('chat', () => {
   const currentToolCalls        = ref<ToolCallRecord[]>([])
   const pendingNoteContext       = ref<{ title: string; content: string } | null>(null)
   const pendingSkillExtract      = ref<ProposedSkill | null>(null)
+  // Conversations where skill extraction was already offered (saved or dismissed)
+  const skillExtractedConvIds    = new Set<string>()
   // Artifacts generated in current session (in-memory, reset on conversation switch)
   const sessionArtifacts         = ref<Artifact[]>([])
 
@@ -262,9 +264,15 @@ export const useChatStore = defineStore('chat', () => {
         autoTitle(convId!, messages.value, assistantMsg.content)
       }
 
-      // Auto-extract skill when 3+ tool calls were made (fire-and-forget)
+      // Auto-extract skill: only once per conversation (skip if already offered)
       const toolSnapshot = [...currentToolCalls.value]
-      if (toolSnapshot.length >= 3 && settings.apiKey && assistantMsg.content) {
+      if (
+        toolSnapshot.length >= 3 &&
+        settings.apiKey &&
+        assistantMsg.content &&
+        convId && !skillExtractedConvIds.has(convId)
+      ) {
+        skillExtractedConvIds.add(convId)   // mark before async to prevent double-fire
         extractSkill(toolSnapshot, assistantMsg.content, settings)
           .then(proposed => { if (proposed) pendingSkillExtract.value = proposed })
           .catch(() => {})
@@ -384,11 +392,17 @@ ${seq}
     } catch { /* silent */ }
   }
 
+  function markSkillDone(convId: string | null) {
+    if (convId) skillExtractedConvIds.add(convId)
+    pendingSkillExtract.value = null
+  }
+
   return {
     conversations, currentConversationId, messages,
     isStreaming, currentToolCalls, pendingSkillExtract, currentConversation, pendingNoteContext,
     sessionArtifacts,
     loadConversations, createConversation, selectConversation,
-    deleteConversation, renameConversation, sendMessage, stopStreaming, addArtifact
+    deleteConversation, renameConversation, sendMessage, stopStreaming, addArtifact,
+    markSkillDone
   }
 })
