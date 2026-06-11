@@ -42,11 +42,13 @@
             v-model="currentTheme"
             class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none"
           >
-            <option value="github">GitHub</option>
-            <option value="dark">Dark</option>
-            <option value="minimal">Minimal</option>
-            <option value="academic">Academic</option>
-            <option value="terminal">Terminal</option>
+            <option value="clean">清隽阅读</option>
+            <option value="business">商务报告</option>
+            <option value="technical">技术文档</option>
+            <option value="wechat">公众号</option>
+            <option value="aireport">AI 报告</option>
+            <option value="magazine">杂志随笔</option>
+            <option value="cnclassic">中式古典</option>
           </select>
 
           <!-- View mode toggle -->
@@ -142,14 +144,31 @@
           <!-- Preview pane -->
           <div
             v-if="viewMode !== 'edit'"
-            class="flex-1 overflow-y-auto p-5"
+            class="flex-1 overflow-y-auto flex flex-col"
             :class="viewMode === 'split' ? '' : 'w-full'"
           >
-            <div
-              class="md-preview"
-              :class="`theme-${currentTheme}`"
-              v-html="renderedHtml"
-            />
+            <!-- WeChat copy bar -->
+            <div class="shrink-0 flex items-center justify-end gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-850/80">
+              <button
+                class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all"
+                :class="wechatCopied
+                  ? 'border-emerald-400 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-600 dark:hover:text-green-400'"
+                :disabled="wechatCopying"
+                :title="`以「${themeLabel}」样式复制到微信公众号`"
+                @click="handleWechatCopy"
+              >
+                <span v-if="wechatCopying" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                <span v-else>{{ wechatCopied ? '✓ 已复制' : '复制到公众号' }}</span>
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5">
+              <div
+                class="md-preview"
+                :class="`theme-${currentTheme}`"
+                v-html="renderedHtml"
+              />
+            </div>
           </div>
 
           <!-- ── Version history panel ── -->
@@ -235,6 +254,7 @@ import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import '@/assets/markdown-themes/index.css'
+import { copyToWeChat } from '@/services/wechatCopy'
 import type { Note, Category, Tag as TagType } from '@/stores/notes'
 
 // ── Marked config ─────────────────────────────────────────────────────────────
@@ -264,9 +284,19 @@ const emit = defineEmits<{
 const editorRef = ref<HTMLTextAreaElement | null>(null)
 const saving = ref(false)
 const viewMode = ref<'edit' | 'split' | 'preview'>('split')
-const currentTheme = ref('github')
+const currentTheme = ref(localStorage.getItem('noteTheme') ?? 'clean')
 const showNewTag = ref(false)
 const newTagName = ref('')
+const wechatCopying = ref(false)
+const wechatCopied = ref(false)
+
+const THEME_LABELS: Record<string, string> = {
+  clean: '清隽阅读', business: '商务报告', technical: '技术文档',
+  wechat: '公众号', aireport: 'AI报告', magazine: '杂志随笔', cnclassic: '中式古典',
+}
+const themeLabel = computed(() => THEME_LABELS[currentTheme.value] ?? currentTheme.value)
+
+watch(currentTheme, v => localStorage.setItem('noteTheme', v))
 
 const viewModes = [
   { key: 'edit', label: '编辑' },
@@ -350,6 +380,21 @@ const renderedHtml = computed(() => {
   const raw = marked.parse(form.value.content || '*开始写作后，预览会在这里显示…*') as string
   return DOMPurify.sanitize(raw)
 })
+
+// ── WeChat copy ───────────────────────────────────────────────────────────────
+async function handleWechatCopy() {
+  if (wechatCopying.value) return
+  wechatCopying.value = true
+  try {
+    await copyToWeChat(renderedHtml.value, currentTheme.value)
+    wechatCopied.value = true
+    setTimeout(() => { wechatCopied.value = false }, 2500)
+  } catch (e) {
+    console.error('WeChat copy failed:', e)
+  } finally {
+    wechatCopying.value = false
+  }
+}
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 const toolbar = [
