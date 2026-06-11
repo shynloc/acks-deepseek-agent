@@ -15,29 +15,31 @@ export function initDatabase(): Database.Database {
   // Incremental migrations (idempotent ALTER TABLE — fails silently if column exists)
   try { db.exec('ALTER TABLE conversations ADD COLUMN agent_id TEXT') } catch { /* exists */ }
 
-  // Memories table (Sprint E)
+  // Memories table (Sprint E) — base schema without new columns for backward compat
   db.exec(`
     CREATE TABLE IF NOT EXISTS memories (
-      id           TEXT PRIMARY KEY,
-      content      TEXT NOT NULL,
-      category     TEXT NOT NULL DEFAULT 'general',
-      importance   INTEGER DEFAULT 5,
-      is_pinned    INTEGER DEFAULT 0,
-      recall_count INTEGER DEFAULT 0,
-      last_recalled INTEGER,
-      is_archived  INTEGER DEFAULT 0,
-      created_at   INTEGER NOT NULL,
-      updated_at   INTEGER NOT NULL
+      id          TEXT PRIMARY KEY,
+      content     TEXT NOT NULL,
+      category    TEXT NOT NULL DEFAULT 'general',
+      importance  INTEGER DEFAULT 5,
+      created_at  INTEGER NOT NULL,
+      updated_at  INTEGER NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_memories_rank   ON memories(importance DESC, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_memories_pinned ON memories(is_pinned);
-    CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_archived, importance DESC);
+    CREATE INDEX IF NOT EXISTS idx_memories_rank ON memories(importance DESC, created_at DESC);
   `)
-  // Idempotent column additions for existing installations
-  const memCols = ['is_pinned','recall_count','last_recalled','is_archived']
-  for (const col of memCols) {
-    try { db.exec(`ALTER TABLE memories ADD COLUMN ${col} ${col === 'last_recalled' ? 'INTEGER' : 'INTEGER DEFAULT 0'}`) } catch { /* exists */ }
+  // Idempotent column additions — run BEFORE indexes that reference these columns
+  const memMigrations: [string, string][] = [
+    ['is_pinned',    'INTEGER DEFAULT 0'],
+    ['recall_count', 'INTEGER DEFAULT 0'],
+    ['last_recalled','INTEGER'],
+    ['is_archived',  'INTEGER DEFAULT 0'],
+  ]
+  for (const [col, def] of memMigrations) {
+    try { db.exec(`ALTER TABLE memories ADD COLUMN ${col} ${def}`) } catch { /* already exists */ }
   }
+  // Indexes that depend on new columns (safe after migration above)
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_memories_pinned ON memories(is_pinned)') } catch { /* ok */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_archived, importance DESC)') } catch { /* ok */ }
 
   seedBuiltinSkills(db)
   console.log('[DB] Initialized at:', dbPath)
