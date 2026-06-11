@@ -24,6 +24,8 @@ toolRegistry.register({
     }
   },
   handler: async (args, ctx) => {
+    const pluginOn = ctx.store.get('webSearchEnabled') as boolean ?? true
+    if (!pluginOn) return JSON.stringify({ error: '联网搜索插件已禁用，请在个人中心「内置插件」中开启' })
     const rawKey = (ctx.store.get('tavilyKey') as string | undefined) ?? ''
     const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim()
     if (!apiKey) return JSON.stringify({ error: '联网搜索未配置，请在设置页填写 Tavily API Key' })

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { homedir } from 'os'
 
 const api = {
   config: {
@@ -51,6 +52,15 @@ const api = {
       update: (id: string, patch: unknown): Promise<void>  => ipcRenderer.invoke('db:plugins:update', id, patch),
       delete: (id: string): Promise<void>                  => ipcRenderer.invoke('db:plugins:delete', id)
     },
+    memories: {
+      list:        (opts?: { limit?: number; category?: string }): Promise<unknown[]> => ipcRenderer.invoke('db:memories:list', opts ?? {}),
+      create:      (m: unknown): Promise<unknown>               => ipcRenderer.invoke('db:memories:create', m),
+      delete:      (id: string): Promise<void>                  => ipcRenderer.invoke('db:memories:delete', id),
+      search:      (query: string, limit?: number): Promise<unknown[]> => ipcRenderer.invoke('db:memories:search', query, limit),
+      update:      (id: string, patch: unknown): Promise<void>  => ipcRenderer.invoke('db:memories:update', id, patch),
+      loadContext: (userText: string): Promise<unknown[]>       => ipcRenderer.invoke('db:memories:loadContext', userText),
+      consolidate: (): Promise<{ success: boolean; kept?: number; deleted?: number; error?: string }> => ipcRenderer.invoke('db:memories:consolidate')
+    },
     shortcuts: {
       list: (): Promise<unknown[]> => ipcRenderer.invoke('db:shortcuts:list'),
       add: (noteId: string): Promise<void> => ipcRenderer.invoke('db:shortcuts:add', noteId),
@@ -61,7 +71,8 @@ const api = {
     },
     export: {
       json: (): Promise<{ success: boolean; filePath?: string }> => ipcRenderer.invoke('db:export:json'),
-      markdown: (): Promise<{ success: boolean; count?: number; dir?: string }> => ipcRenderer.invoke('db:export:markdown')
+      markdown: (): Promise<{ success: boolean; count?: number; dir?: string }> => ipcRenderer.invoke('db:export:markdown'),
+      conversation: (id: string): Promise<{ success: boolean; filePath?: string; error?: string }> => ipcRenderer.invoke('db:conversations:export', id)
     },
     import: {
       json: (): Promise<{ success: boolean; count: number }> => ipcRenderer.invoke('db:import:json'),
@@ -118,6 +129,10 @@ const api = {
     node: process.versions.node,
     chrome: process.versions.chrome,
     electron: process.versions.electron
+  },
+  // Static env info available in preload (node context), exposed for renderer use
+  env: {
+    homeDir: homedir()
   }
 }
 

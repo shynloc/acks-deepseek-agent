@@ -175,7 +175,7 @@
           class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
         >
           <NoteCard
-            v-for="note in filteredNotes"
+            v-for="note in visibleNotes"
             :key="note.id"
             :note="note"
             :categories="categories"
@@ -192,7 +192,7 @@
           <!-- List -->
           <div v-else class="space-y-1.5">
             <div
-              v-for="note in filteredNotes"
+              v-for="note in visibleNotes"
               :key="note.id"
               class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all"
               @click="selectedNote = note"
@@ -215,25 +215,30 @@
               </div>
             </div>
           </div>
+          <!-- IntersectionObserver sentinel for infinite scroll -->
+          <div v-if="hasMore" ref="sentinelRef" class="h-8" />
         </template>
       </div>
     </main>
 
     <!-- ══ Note Editor Modal ══ -->
-    <NoteEditor
-      v-if="editorOpen"
-      :note="editingNote"
-      :categories="categories"
-      :available-tags="tags"
-      @save="onEditorSave"
-      @auto-save="onEditorAutoSave"
-      @close="editorOpen = false"
-      @create-tag="onCreateTag"
-    />
+    <Transition name="modal">
+      <NoteEditor
+        v-if="editorOpen"
+        :note="editingNote"
+        :categories="categories"
+        :available-tags="tags"
+        @save="onEditorSave"
+        @auto-save="onEditorAutoSave"
+        @close="editorOpen = false"
+        @create-tag="onCreateTag"
+      />
+    </Transition>
 
     <!-- Delete confirm dialog -->
-    <div v-if="deletingNote" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="deletingNote = null">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-80">
+    <Transition name="modal">
+      <div v-if="deletingNote" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="deletingNote = null">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-80">
         <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">删除笔记</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">「{{ deletingNote.title || '无标题' }}」将被永久删除，无法恢复。</p>
         <div class="flex gap-2 justify-end">
@@ -242,11 +247,12 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import {
   Plus, X, Search, BookOpen, FolderOpen, Bookmark,
   LayoutGrid, List, Pencil, Trash2
@@ -388,6 +394,30 @@ const filteredNotes = computed(() => {
   return list
 })
 
+// ── Virtual paging (IntersectionObserver, no extra deps) ──────────────────────
+const PAGE_SIZE   = 30
+const displayCount = ref(PAGE_SIZE)
+const sentinelRef  = ref<HTMLElement | null>(null)
+
+const visibleNotes = computed(() => filteredNotes.value.slice(0, displayCount.value))
+const hasMore      = computed(() => displayCount.value < filteredNotes.value.length)
+
+// Reset page when filter/sort changes
+watch(filteredNotes, () => { displayCount.value = PAGE_SIZE })
+
+let observer: IntersectionObserver | null = null
+watch(sentinelRef, (el) => {
+  observer?.disconnect()
+  if (!el) return
+  observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && hasMore.value) {
+      displayCount.value += PAGE_SIZE
+    }
+  }, { rootMargin: '100px' })
+  observer.observe(el)
+})
+onBeforeUnmount(() => observer?.disconnect())
+
 // ── Search (debounced) ────────────────────────────────────────────────────────
 let searchTimer: ReturnType<typeof setTimeout>
 function onSearch() {
@@ -446,3 +476,9 @@ const noteColorHexMap: Record<string, string> = {
 }
 function noteColorHex(color: string): string { return noteColorHexMap[color] ?? '#e5e7eb' }
 </script>
+
+<style scoped>
+.modal-enter-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.modal-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.97); }
+</style>

@@ -6,6 +6,8 @@ import './builtin/files'
 import './builtin/documents'
 import './builtin/spreadsheet'
 import './builtin/docx'
+import './builtin/pptx'
+import './builtin/memory'
 
 export { toolRegistry } from './registry'
 export type { ToolEntry, ToolContext, ToolSchema } from './registry'

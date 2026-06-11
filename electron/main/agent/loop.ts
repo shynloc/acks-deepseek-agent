@@ -45,60 +45,87 @@ export async function runAgentLoop(
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
   let totalUsage = { promptTokens: 0, completionTokens: 0 }
-  const MAX_STREAM_RETRIES = 2
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-    // ── Stream one LLM turn (with retry on dropped connection) ───────────────
+    // ── Stream one LLM turn, fall back to non-streaming if SSE drops ─────────
+    const requestBody = { model, messages, tools: toolsDef, tool_choice: 'auto', max_tokens: maxTokens, temperature }
+    const headers     = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+    const signal      = callbacks.signal as RequestInit['signal']
+
     let textContent    = ''
     let toolCalls: ToolCall[] = []
     let finishReason: string | null = null
     let usage = { promptTokens: 0, completionTokens: 0 }
 
-    for (let retry = 0; retry <= MAX_STREAM_RETRIES; retry++) {
-      let response: Response
+    // ① Try streaming
+    let streamResponse: Response | null = null
+    try {
+      streamResponse = await net.fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ ...requestBody, stream: true }),
+        signal
+      })
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return
+      callbacks.onError(e?.message ?? '网络请求失败')
+      return
+    }
+    if (!streamResponse.ok) {
+      const errText = await streamResponse.text().catch(() => streamResponse!.statusText)
+      callbacks.onError(`API ${streamResponse.status}: ${errText.slice(0, 200)}`)
+      return
+    }
+
+    const parsed = await parseStream(streamResponse, callbacks)
+    textContent  = parsed.textContent
+    toolCalls    = parsed.toolCalls
+    finishReason = parsed.finishReason
+    usage        = parsed.usage
+
+    console.log(`[agent iter=${iter}] stream done: complete=${parsed.streamComplete} text=${JSON.stringify(textContent.slice(0,80))} toolCalls=${toolCalls.length} finishReason=${finishReason}`)
+
+    // ② Stream dropped before tool_calls arrived → fallback to non-streaming
+    if (!parsed.streamComplete && !toolCalls.length) {
+      console.log(`[agent iter=${iter}] stream dropped, falling back to non-streaming`)
+      // Clear the partial streamed text the user already saw (only if there was partial text)
+      if (textContent) callbacks.onDelta('')
+
       try {
-        response = await net.fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages, tools: toolsDef, tool_choice: 'auto', stream: true, max_tokens: maxTokens, temperature }),
-          signal: callbacks.signal as RequestInit['signal']
+        // tool_choice:'none' forces a text response, preventing the fallback from returning
+        // tool_calls (which would loop indefinitely when the stream keeps dropping)
+        const fbResp = await net.fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ ...requestBody, stream: false, tool_choice: 'none' }),
+          signal
         })
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return
-        if (retry < MAX_STREAM_RETRIES) continue   // network error → retry
-        callbacks.onError(e?.message ?? '网络请求失败')
-        return
-      }
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => response.statusText)
-        callbacks.onError(`API ${response.status}: ${errText.slice(0, 200)}`)
-        return
-      }
-
-      const parsed = await parseStream(response, callbacks)
-      textContent  = parsed.textContent
-      toolCalls    = parsed.toolCalls
-      finishReason = parsed.finishReason
-      usage        = parsed.usage
-
-      // Stream ended cleanly, or we have valid tool calls → proceed
-      if (parsed.streamComplete || toolCalls.length) break
-
-      // Stream dropped mid-response (no [DONE], no finish_reason)
-      if (retry < MAX_STREAM_RETRIES) {
-        // Clear the partial text delta visually and retry silently
-        if (textContent) {
-          // Erase what was streamed so far with a backspace-equivalent reset
-          callbacks.onDelta('')   // signal renderer to clear streaming content
+        console.log(`[agent iter=${iter}] fallback response status=${fbResp.status}`)
+        if (fbResp.ok) {
+          const fbData = await fbResp.json()
+          const choice = fbData.choices?.[0]
+          textContent  = choice?.message?.content ?? ''
+          finishReason = choice?.finish_reason ?? null
+          usage        = {
+            promptTokens:     fbData.usage?.prompt_tokens     ?? 0,
+            completionTokens: fbData.usage?.completion_tokens ?? 0
+          }
+          console.log(`[agent iter=${iter}] fallback result: text=${JSON.stringify(textContent.slice(0,120))}`)
+          if (textContent) callbacks.onDelta(textContent)
+          else {
+            // Model returned empty content despite tool_choice:'none' — treat as an error
+            callbacks.onDelta('\n\n> ⚠️ AI 返回了空响应，请重试。')
+          }
+        } else {
+          // Non-200 from fallback — surface the error so the user knows something went wrong
+          const errText = await fbResp.text().catch(() => fbResp.statusText)
+          console.log(`[agent iter=${iter}] fallback error: ${fbResp.status} ${errText.slice(0,200)}`)
+          callbacks.onDelta(`\n\n> ⚠️ API 错误 ${fbResp.status}，请稍后重试。`)
         }
-        textContent = ''
-        await new Promise(r => setTimeout(r, 800 * (retry + 1)))  // brief back-off
-        continue
+      } catch (e: any) {
+        if ((e as any)?.name === 'AbortError') return
+        console.log(`[agent iter=${iter}] fallback threw: ${(e as any)?.message}`)
+        callbacks.onDelta('\n\n> ⚠️ 网络连接不稳定，请重试。')
       }
-
-      // Exhausted retries: surface the error
-      callbacks.onDelta('\n\n> ⚠️ 连接在响应中途中断，请重试。')
+      // Fallback always ends the loop — no tool execution after non-streaming request
       callbacks.onDone(totalUsage)
       return
     }

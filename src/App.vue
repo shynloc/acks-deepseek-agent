@@ -19,13 +19,26 @@ const showOnboarding = ref(false)
 const showGlobalSearch = ref(false)
 
 function onKeydown(e: KeyboardEvent) {
+  // Cmd+, → settings/profile
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === ',') {
+    e.preventDefault()
+    router.push('/profile')
+    return
+  }
+  // Cmd+N → new conversation
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'n') {
+    e.preventDefault()
+    router.push('/chat')
+    setTimeout(() => chatStore.createConversation(), 100)
+    return
+  }
   // Ctrl/Cmd + Shift + F → global search
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'f') {
     e.preventDefault()
     showGlobalSearch.value = !showGlobalSearch.value
     return
   }
-  // Ctrl/Cmd + Shift + N → new conversation
+  // Ctrl/Cmd + Shift + N → new conversation (alias)
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'n') {
     e.preventDefault()
     router.push('/chat')

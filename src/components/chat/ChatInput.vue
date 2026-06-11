@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { Send, Square, Globe, BookOpen, X, Paperclip, FileText, Image as ImageIcon, AlertCircle, CheckCircle, Loader } from '@lucide/vue'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import NotePickerPanel from './NotePickerPanel.vue'
+import AgentSelector from './AgentSelector.vue'
+import { getAgent } from '@/data/agents'
 import { parseFile, type ParseResult } from '@/services/fileParser'
 import type { Note } from '@/stores/notes'
 
@@ -15,10 +17,59 @@ const settings = useSettingsStore()
 const text = ref('')
 const textarea = ref<HTMLTextAreaElement | null>(null)
 const showNotePicker = ref(false)
-const webSearchOn = ref(false)
-const fileInputRef = ref<HTMLInputElement | null>(null)
+const webSearchOn    = ref(false)
+const fileInputRef   = ref<HTMLInputElement | null>(null)
 
-// Consume initial text from parent (e.g. note context)
+// ── Agent selection ───────────────────────────────────────────────────────────
+const selectedAgentId = ref<string | null>(null)
+
+// Sync selectedAgentId with the current conversation's agentId
+watch(() => chat.currentConversationId, (newId) => {
+  if (newId) {
+    const conv = chat.conversations.find(c => c.id === newId)
+    selectedAgentId.value = conv?.agentId ?? null
+  } else {
+    selectedAgentId.value = null
+  }
+}, { immediate: true })
+
+// Lock agent selector once conversation has messages
+const agentLocked = computed(() => chat.messages.length > 0)
+
+// ── Draft auto-save (2s debounce, keyed by conversationId) ───────────────────
+const DRAFT_KEY = () => `draft:${chat.currentConversationId ?? '__new__'}`
+let draftTimer: ReturnType<typeof setTimeout> | null = null
+
+function saveDraft() {
+  if (draftTimer) clearTimeout(draftTimer)
+  draftTimer = setTimeout(() => {
+    window.api.config.set(DRAFT_KEY(), text.value || null)
+  }, 2000)
+}
+
+async function restoreDraft() {
+  const saved = await window.api.config.get(DRAFT_KEY()) as string | null
+  if (saved && !text.value) {
+    text.value = saved
+    nextTick(() => autoResize())
+  }
+}
+
+function clearDraft() {
+  if (draftTimer) clearTimeout(draftTimer)
+  window.api.config.set(DRAFT_KEY(), null)
+}
+
+// Restore draft when conversation changes
+watch(() => chat.currentConversationId, () => {
+  text.value = ''
+  restoreDraft()
+})
+
+onMounted(restoreDraft)
+onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer) })
+
+// Consume initial text from parent (e.g. note context) — overrides draft
 watch(() => props.initialText, (val) => {
   if (val) {
     text.value = val
@@ -48,6 +99,9 @@ const canSend = computed(() =>
   (text.value.trim().length > 0 || attachments.value.some(a => a.status === 'ready')) &&
   !!settings.apiKey && !chat.isStreaming
 )
+
+// Trigger draft save on input
+watch(text, (val) => { if (val) saveDraft() })
 
 function autoResize(): void {
   const el = textarea.value
@@ -86,14 +140,18 @@ async function send(): Promise<void> {
   // Also carry over injected note titles (they're already in text.value as blocks)
   // Those blocks stay in userText for now — note injection keeps its current behavior
 
+  clearDraft()
   text.value = ''
   injectedNotes.value = []
   attachments.value = []
   if (textarea.value) textarea.value.style.height = 'auto'
 
+  const agentDef = selectedAgentId.value ? getAgent(selectedAgentId.value) : null
   await chat.sendMessage(userText, {
-    contextPrefix: contextPrefix || undefined,
-    attachments:   displayAttachments.length ? displayAttachments : undefined
+    contextPrefix:     contextPrefix || undefined,
+    attachments:       displayAttachments.length ? displayAttachments : undefined,
+    agentId:           agentDef?.id,
+    agentSystemPrompt: agentDef?.systemPrompt,
   })
 }
 
@@ -139,7 +197,7 @@ async function addAttachment(file: File) {
   }
 
   // Build parse options — pass vision config if key is set
-  const parseOptions = settings.visionEnabled
+  const parseOptions = settings.visionActive
     ? {
         vision: {
           apiKey: settings.visionApiKey,
@@ -265,6 +323,14 @@ function removeInjectedNote(noteId: string) {
     <div class="p-4 pt-3">
       <!-- Toolbar -->
       <div class="flex items-center gap-1 mb-2 px-0.5">
+        <!-- Agent selector (only when no messages yet) -->
+        <AgentSelector
+          v-model="selectedAgentId"
+          :disabled="agentLocked"
+        />
+
+        <div class="w-px h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+
         <button
           class="flex items-center gap-1 text-xs py-1 px-2 rounded-lg transition-colors"
           :class="showNotePicker
@@ -281,14 +347,14 @@ function removeInjectedNote(noteId: string) {
 
         <button
           class="flex items-center gap-1 text-xs py-1 px-2 rounded-lg transition-colors"
-          :class="webSearchOn && settings.tavilyEnabled
+          :class="webSearchOn && settings.webSearchActive
             ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'
             : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
-          :title="settings.tavilyEnabled ? (webSearchOn ? '点击关闭联网搜索' : '点击开启联网搜索') : '请在个人中心配置 Tavily API Key'"
-          @click="settings.tavilyEnabled ? (webSearchOn = !webSearchOn) : undefined"
+          :title="settings.webSearchActive ? (webSearchOn ? '点击关闭联网搜索' : '点击开启联网搜索') : !settings.tavilyEnabled ? '请在个人中心配置 Tavily API Key' : '联网搜索插件已关闭'"
+          @click="settings.webSearchActive ? (webSearchOn = !webSearchOn) : undefined"
         >
           <Globe class="w-3.5 h-3.5" />联网搜索
-          <span v-if="!settings.tavilyEnabled" class="text-zinc-300 dark:text-zinc-600">·未配置</span>
+          <span v-if="!settings.webSearchActive" class="text-zinc-300 dark:text-zinc-600">·{{ settings.tavilyEnabled ? '已禁用' : '未配置' }}</span>
         </button>
 
         <span v-if="!settings.apiKey" class="ml-auto text-xs text-amber-500 dark:text-amber-400">

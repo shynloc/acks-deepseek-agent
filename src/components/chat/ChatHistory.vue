@@ -5,6 +5,8 @@ import { useChatStore, type Conversation } from '@/stores/chat'
 import dayjs from 'dayjs'
 
 const chat = useChatStore()
+// Loading flag: true until first conversations load completes
+const isLoading = computed(() => chat.conversationsLoading)
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
 const searchQuery = ref('')
@@ -71,8 +73,16 @@ function highlight(text: string, q: string): string {
 
     <!-- Conversation list -->
     <div class="flex-1 overflow-y-auto p-2 space-y-0.5">
+      <!-- Skeleton while loading -->
+      <template v-if="isLoading">
+        <div v-for="i in 5" :key="i" class="px-2.5 py-2 rounded-lg animate-pulse">
+          <div class="h-3.5 rounded bg-zinc-200 dark:bg-zinc-700 mb-1.5" :style="`width: ${55 + i * 8}%`" />
+          <div class="h-2.5 rounded bg-zinc-100 dark:bg-zinc-800 w-12" />
+        </div>
+      </template>
+
       <div
-        v-if="filteredConversations.length === 0"
+        v-else-if="filteredConversations.length === 0"
         class="flex flex-col items-center justify-center h-32 gap-2 text-zinc-400 dark:text-zinc-600"
       >
         <MessageSquare class="w-7 h-7" />
@@ -80,6 +90,7 @@ function highlight(text: string, q: string): string {
       </div>
 
       <div
+        v-else
         v-for="conv in filteredConversations"
         :key="conv.id"
         @click="chat.selectConversation(conv.id)"

@@ -14,24 +14,33 @@ export const useSettingsStore = defineStore('settings', () => {
   const maxTokens   = ref(8192)    // DeepSeek default ~4096, flash/pro support up to 384K
   const temperature = ref(1.0)     // 0 = deterministic, 1 = balanced, 2 = creative
 
+  // ── User Profile ──────────────────────────────────────────────────────────
+  const userName    = ref('')
+  const userRole    = ref('')
+  const userContext = ref('')
+  const userEnabled = computed(() => !!(userName.value.trim() || userRole.value.trim() || userContext.value.trim()))
+
   // ── Soul (Agent 身份注入) ─────────────────────────────────────────────────
   const soulContent = ref('')
   const soulEnabled = computed(() => !!soulContent.value.trim())
 
   // ── Tavily (联网搜索) ────────────────────────────────────────────────────────
-  const tavilyKey = ref('')
-  // Only printable ASCII allowed in HTTP headers; check after stripping junk chars
-  const tavilyEnabled = computed(() => !!tavilyKey.value.replace(/[^\x20-\x7E]/g, '').trim())
+  const tavilyKey        = ref('')
+  const webSearchEnabled = ref(true)   // per-plugin on/off toggle
+  const tavilyEnabled    = computed(() => !!tavilyKey.value.replace(/[^\x20-\x7E]/g, '').trim())
+  const webSearchActive  = computed(() => tavilyEnabled.value && webSearchEnabled.value)
 
   // ── Vision (MiMo) ─────────────────────────────────────────────────────────
-  const visionApiKey  = ref('')
-  const visionBaseUrl = ref('https://token-plan-cn.xiaomimimo.com/v1')
-  const visionModel   = ref('mimo-v2.5')
+  const visionApiKey      = ref('')
+  const visionBaseUrl     = ref('https://token-plan-cn.xiaomimimo.com/v1')
+  const visionModel       = ref('mimo-v2.5')
+  const visionPluginEnabled = ref(true)  // per-plugin on/off toggle
   const isTestingVision   = ref(false)
   const visionTestResult  = ref<'success' | 'fail' | null>(null)
   const visionTestError   = ref('')
 
   const visionEnabled = computed(() => !!visionApiKey.value.trim())
+  const visionActive  = computed(() => visionEnabled.value && visionPluginEnabled.value)
 
   // ── Load / Save ───────────────────────────────────────────────────────────
   let _loaded = false
@@ -43,9 +52,14 @@ export const useSettingsStore = defineStore('settings', () => {
     model.value    = (await window.api.config.get('model')    as string) ?? 'deepseek-v4-flash'
     maxTokens.value   = Number((await window.api.config.get('maxTokens'))   ?? 8192) || 8192
     temperature.value = Number((await window.api.config.get('temperature')) ?? 1.0)
+    userName.value    = (await window.api.config.get('userName')    as string) ?? ''
+    userRole.value    = (await window.api.config.get('userRole')    as string) ?? ''
+    userContext.value = (await window.api.config.get('userContext') as string) ?? ''
     soulContent.value = (await window.api.config.get('soulContent') as string) ?? ''
-    tavilyKey.value = (await window.api.config.get('tavilyKey') as string) ?? ''
-    visionApiKey.value  = (await window.api.config.get('visionApiKey')  as string) ?? ''
+    tavilyKey.value        = (await window.api.config.get('tavilyKey')           as string)  ?? ''
+    webSearchEnabled.value = (await window.api.config.get('webSearchEnabled')     as boolean) ?? true
+    visionPluginEnabled.value = (await window.api.config.get('visionPluginEnabled') as boolean) ?? true
+    visionApiKey.value     = (await window.api.config.get('visionApiKey')         as string)  ?? ''
     visionBaseUrl.value = (await window.api.config.get('visionBaseUrl') as string) ?? 'https://token-plan-cn.xiaomimimo.com/v1'
     visionModel.value   = (await window.api.config.get('visionModel')   as string) ?? 'mimo-v2.5'
     _loaded = true
@@ -57,9 +71,14 @@ export const useSettingsStore = defineStore('settings', () => {
     await window.api.config.set('model',      model.value)
     await window.api.config.set('maxTokens',   maxTokens.value)
     await window.api.config.set('temperature', temperature.value)
+    await window.api.config.set('userName',    userName.value)
+    await window.api.config.set('userRole',    userRole.value)
+    await window.api.config.set('userContext', userContext.value)
     await window.api.config.set('soulContent', soulContent.value)
-    await window.api.config.set('tavilyKey', tavilyKey.value)
-    await window.api.config.set('visionApiKey',  visionApiKey.value)
+    await window.api.config.set('tavilyKey',           tavilyKey.value)
+    await window.api.config.set('webSearchEnabled',    webSearchEnabled.value)
+    await window.api.config.set('visionPluginEnabled', visionPluginEnabled.value)
+    await window.api.config.set('visionApiKey',        visionApiKey.value)
     await window.api.config.set('visionBaseUrl', visionBaseUrl.value)
     await window.api.config.set('visionModel',   visionModel.value)
   }
@@ -94,9 +113,11 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     apiKey, baseUrl, model, maxTokens, temperature, isTesting, testResult,
+    userName, userRole, userContext, userEnabled,
     soulContent, soulEnabled,
-    tavilyKey, tavilyEnabled,
-    visionApiKey, visionBaseUrl, visionModel, visionEnabled, isTestingVision, visionTestResult, visionTestError,
+    tavilyKey, tavilyEnabled, webSearchEnabled, webSearchActive,
+    visionApiKey, visionBaseUrl, visionModel, visionEnabled, visionActive, visionPluginEnabled,
+    isTestingVision, visionTestResult, visionTestError,
     load, save, testApi, testVisionApi
   }
 })

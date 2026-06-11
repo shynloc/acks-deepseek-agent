@@ -12,6 +12,33 @@ export function initDatabase(): Database.Database {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(schema)
+  // Incremental migrations (idempotent ALTER TABLE — fails silently if column exists)
+  try { db.exec('ALTER TABLE conversations ADD COLUMN agent_id TEXT') } catch { /* exists */ }
+
+  // Memories table (Sprint E)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memories (
+      id           TEXT PRIMARY KEY,
+      content      TEXT NOT NULL,
+      category     TEXT NOT NULL DEFAULT 'general',
+      importance   INTEGER DEFAULT 5,
+      is_pinned    INTEGER DEFAULT 0,
+      recall_count INTEGER DEFAULT 0,
+      last_recalled INTEGER,
+      is_archived  INTEGER DEFAULT 0,
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_memories_rank   ON memories(importance DESC, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_memories_pinned ON memories(is_pinned);
+    CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_archived, importance DESC);
+  `)
+  // Idempotent column additions for existing installations
+  const memCols = ['is_pinned','recall_count','last_recalled','is_archived']
+  for (const col of memCols) {
+    try { db.exec(`ALTER TABLE memories ADD COLUMN ${col} ${col === 'last_recalled' ? 'INTEGER' : 'INTEGER DEFAULT 0'}`) } catch { /* exists */ }
+  }
+
   seedBuiltinSkills(db)
   console.log('[DB] Initialized at:', dbPath)
   return db

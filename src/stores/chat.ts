@@ -16,7 +16,7 @@ export interface Artifact {
   id:       string
   name:     string        // filename
   filePath: string        // absolute local path
-  kind:     'docx' | 'xlsx' | 'html' | 'md' | 'txt' | 'file'
+  kind:     'docx' | 'xlsx' | 'pptx' | 'html' | 'md' | 'txt' | 'file'
   msgId?:   string        // which assistant message created it
   createdAt: number
 }
@@ -38,6 +38,7 @@ export interface Conversation {
   createdAt: number
   updatedAt: number
   systemPrompt?: string
+  agentId?: string
 }
 
 export interface ToolCallRecord {
@@ -54,11 +55,15 @@ export interface ToolCallRecord {
 const TOOL_EMOJI: Record<string, string> = {
   search_notes: '🔍', get_note: '📄', list_notes: '📚',
   create_note: '✍️', update_note: '✏️',
-  web_search: '🌐', get_datetime: '🕐', get_stats: '📊'
+  web_search: '🌐', get_datetime: '🕐', get_stats: '📊',
+  save_memory: '🧠', recall_memories: '💭', delete_memory: '🗑️',
+  generate_docx: '📝', generate_document: '📄', generate_spreadsheet: '📊',
+  create_pptx: '📊'
 }
 
 export const useChatStore = defineStore('chat', () => {
   const conversations           = ref<Conversation[]>([])
+  const conversationsLoading    = ref(true)
   const currentConversationId   = ref<string | null>(null)
   const messages                = ref<Message[]>([])
   const isStreaming              = ref(false)
@@ -79,19 +84,27 @@ export const useChatStore = defineStore('chat', () => {
   // ── Conversations ──────────────────────────────────────────────────────────
 
   async function loadConversations(): Promise<void> {
-    conversations.value = await window.api.db.conversations.list() as Conversation[]
+    conversationsLoading.value = true
+    try {
+      conversations.value = await window.api.db.conversations.list() as Conversation[]
+    } finally {
+      conversationsLoading.value = false
+    }
   }
 
-  async function createConversation(): Promise<Conversation> {
+  async function createConversation(opts?: { agentId?: string; systemPrompt?: string }): Promise<Conversation> {
     const settings = useSettingsStore()
     const conv: Conversation = {
       id: genId(), title: '新对话', model: settings.model,
-      createdAt: Date.now(), updatedAt: Date.now()
+      createdAt: Date.now(), updatedAt: Date.now(),
+      agentId:      opts?.agentId      ?? undefined,
+      systemPrompt: opts?.systemPrompt ?? undefined,
     }
     await window.api.db.conversations.create(conv)
     conversations.value.unshift(conv)
     currentConversationId.value = conv.id
     messages.value = []
+    sessionArtifacts.value = []
     return conv
   }
 
@@ -125,7 +138,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(
     content: string,
-    opts?: { contextPrefix?: string; attachments?: MessageAttachment[] }
+    opts?: { contextPrefix?: string; attachments?: MessageAttachment[]; agentId?: string; agentSystemPrompt?: string }
   ): Promise<void> {
     const settings  = useSettingsStore()
     const skillsStore = useSkillsStore()
@@ -133,7 +146,9 @@ export const useChatStore = defineStore('chat', () => {
 
     let convId = currentConversationId.value
     if (!convId) {
-      const conv = await createConversation()
+      const conv = await createConversation(
+        opts?.agentId ? { agentId: opts.agentId, systemPrompt: opts.agentSystemPrompt } : undefined
+      )
       convId = conv.id
     }
 
@@ -174,7 +189,42 @@ export const useChatStore = defineStore('chat', () => {
     await skillsStore.load()
     const matchedSkills = skillsStore.matchForInput(content)
     const skillHints    = skillsStore.buildSystemHintFor(matchedSkills)
-    const soulWithSkills = settings.soulContent + skillHints
+
+    // Build user context block
+    const userName    = (settings as any).userName ?? ''
+    const userRole    = (settings as any).userRole ?? ''
+    const userContext = (settings as any).userContext ?? ''
+    let userBlock = ''
+    if (userName || userRole || userContext) {
+      const parts: string[] = []
+      if (userName && userRole) parts.push(`姓名：${userName} | 职业：${userRole}`)
+      else if (userName) parts.push(`姓名：${userName}`)
+      else if (userRole) parts.push(`职业：${userRole}`)
+      if (userContext) parts.push(`背景：${userContext}`)
+      userBlock = `# 关于用户\n${parts.join('\n')}\n\n---\n\n`
+    }
+
+    // 3-tier context loading: Pinned + Keyword-matched + High-importance recent
+    let memoriesBlock = ''
+    try {
+      const mems = await (window.api.db as any).memories.loadContext(content) as any[]
+      if (mems.length) {
+        const categoryLabel: Record<string, string> = {
+          user: '用户', preference: '偏好', project: '项目', general: '通用'
+        }
+        const lines = mems.map((m: any) => {
+          const pin  = m.isPinned ? '📌' : ''
+          const cat  = categoryLabel[m.category] ?? m.category
+          return `- ${pin}[${cat}] ${m.content}`
+        })
+        memoriesBlock = `# 记忆上下文\n${lines.join('\n')}\n\n---\n\n`
+      }
+    } catch { /* memories table may not exist yet on first run */ }
+
+    // Prepend agent persona if this conversation has one
+    const conv = conversations.value.find(c => c.id === convId)
+    const agentPrefix = conv?.systemPrompt ? conv.systemPrompt + '\n\n---\n\n' : ''
+    const soulWithSkills = memoriesBlock + userBlock + agentPrefix + settings.soulContent + skillHints
 
     // Increment usage count for matched skills (fire-and-forget)
     for (const s of matchedSkills) skillsStore.incrementUsage(s.id)
@@ -182,18 +232,27 @@ export const useChatStore = defineStore('chat', () => {
     let finalUsage = { promptTokens: 0, completionTokens: 0 }
     let hadError   = false
 
-    // Register IPC event listeners
-    const offDelta = window.api.agent.onDelta(text => {
-      if (text === '') {
-        // Empty string is a retry signal: clear partial content and reset
-        assistantMsg.content = ''
-      } else {
-        assistantMsg.content += text
-      }
-      messages.value = [...messages.value]
-    })
+    // IPC race-condition fix: agent:delta and agent:done travel through the same send
+    // channel (FIFO), but the agent:run invoke response travels through a DIFFERENT channel.
+    // If the invoke response arrives first, calling offDelta() in finally would remove the
+    // listener before the last delta events are processed. Fix: do listener cleanup INSIDE
+    // the onDone handler (same channel, always arrives after all preceding deltas), with
+    // the finally block as a fallback for abort/error paths where onDone may not fire.
+    let _off: (() => void)[] = []
+    const doCleanup = () => { _off.forEach(f => f()); _off = [] }
 
-    const offToolCall = window.api.agent.onToolCall(tc => {
+    // Register IPC event listeners
+    _off.push(window.api.agent.onDelta(text => {
+      const streamMsg = messages.value[messages.value.length - 1]
+      if (!streamMsg || streamMsg.id !== assistantMsg.id) return
+      if (text === '') {
+        streamMsg.content = ''
+      } else {
+        streamMsg.content += text
+      }
+    }))
+
+    _off.push(window.api.agent.onToolCall(tc => {
       currentToolCalls.value.push({
         callId:  tc.callId,
         name:    tc.name,
@@ -202,9 +261,9 @@ export const useChatStore = defineStore('chat', () => {
         status:  'calling'
       })
       currentToolCalls.value = [...currentToolCalls.value]
-    })
+    }))
 
-    const offToolResult = window.api.agent.onToolResult(tr => {
+    _off.push(window.api.agent.onToolResult(tr => {
       const rec = currentToolCalls.value.find(r => r.callId === tr.callId)
       if (rec) {
         rec.result  = tr.result
@@ -212,24 +271,37 @@ export const useChatStore = defineStore('chat', () => {
         rec.status  = tr.isError ? 'error' : 'done'
         currentToolCalls.value = [...currentToolCalls.value]
       }
-      // Parse file artifacts from tool results (✅ success messages containing file paths)
       if (!tr.isError && tr.result) {
-        const artifact = parseArtifactFromResult(tr.name, tr.result)
-        if (artifact) addArtifact(artifact)
+        for (const artifact of parseArtifactsFromResult(tr.name, tr.result)) {
+          addArtifact(artifact)
+        }
+        // Memory toast
+        if (tr.name === 'save_memory') {
+          try {
+            const r = JSON.parse(tr.result)
+            if (r.success) useToastStore().info('🧠 已记住')
+          } catch { /* ignore */ }
+        }
       }
-    })
+    }))
 
-    const offDone = window.api.agent.onDone(usage => {
+    _off.push(window.api.agent.onDone(usage => {
       finalUsage = usage
-    })
+      // Clean up inside the IPC handler so all preceding deltas on the same channel
+      // are guaranteed to have been processed already.
+      doCleanup()
+    }))
 
-    const offError = window.api.agent.onError(msg => {
+    _off.push(window.api.agent.onError(msg => {
       hadError = true
-      if (!assistantMsg.content) {
-        assistantMsg.content = `❌ ${msg}`
-        messages.value = [...messages.value]
+      const errMsg = messages.value[messages.value.length - 1]
+      if (errMsg?.id === assistantMsg.id) {
+        // Append error after existing content so partial results aren't lost
+        errMsg.content = errMsg.content
+          ? errMsg.content + `\n\n> ❌ ${msg}`
+          : `❌ ${msg}`
       }
-    })
+    }))
 
     try {
       await window.api.agent.run({
@@ -240,20 +312,25 @@ export const useChatStore = defineStore('chat', () => {
       })
     } catch (e: any) {
       if (!hadError) {
-        assistantMsg.content = assistantMsg.content || `❌ ${e?.message ?? '请求失败'}`
-        messages.value = [...messages.value]
+        const errMsg = messages.value[messages.value.length - 1]
+        if (errMsg?.id === assistantMsg.id) {
+          errMsg.content = errMsg.content || `❌ ${e?.message ?? '请求失败'}`
+        }
       }
     } finally {
-      // Clean up all listeners
-      offDelta(); offToolCall(); offToolResult(); offDone(); offError()
+      // Fallback cleanup for abort/error paths where onDone may not have fired
+      doCleanup()
 
       isStreaming.value = false
-      assistantMsg.tokensUsed = finalUsage.completionTokens
-      messages.value = [...messages.value]
+      const doneMsg = messages.value[messages.value.length - 1]
+      if (doneMsg?.id === assistantMsg.id) {
+        doneMsg.tokensUsed = finalUsage.completionTokens
+      }
 
       // Persist assistant message
-      if (assistantMsg.content) {
-        await window.api.db.messages.create(convId!, assistantMsg)
+      const finalContent = messages.value.find(m => m.id === assistantMsg.id)?.content ?? ''
+      if (finalContent) {
+        await window.api.db.messages.create(convId!, { ...assistantMsg, content: finalContent })
       }
 
       // Update conversation timestamp
@@ -262,23 +339,23 @@ export const useChatStore = defineStore('chat', () => {
       const conv = conversations.value.find(c => c.id === convId)
       if (conv) conv.updatedAt = now
 
-      // Auto-title: trigger on 2nd exchange (title is more meaningful with 2 rounds)
+      // Auto-title: trigger on 2nd exchange
       const conv2 = conversations.value.find(c => c.id === convId)
       const userCount = messages.value.filter(m => m.role === 'user').length
       if (conv2?.title === '新对话' && userCount === 2) {
-        autoTitle(convId!, messages.value, assistantMsg.content)
+        autoTitle(convId!, messages.value, finalContent)
       }
 
-      // Auto-extract skill: only once per conversation (skip if already offered)
+      // Auto-extract skill: only once per conversation
       const toolSnapshot = [...currentToolCalls.value]
       if (
         toolSnapshot.length >= 3 &&
         settings.apiKey &&
-        assistantMsg.content &&
+        finalContent &&
         convId && !skillExtractedConvIds.has(convId)
       ) {
-        skillExtractedConvIds.add(convId)   // mark before async to prevent double-fire
-        extractSkill(toolSnapshot, assistantMsg.content, settings)
+        skillExtractedConvIds.add(convId)
+        extractSkill(toolSnapshot, finalContent, settings)
           .then(proposed => { if (proposed) pendingSkillExtract.value = proposed })
           .catch(() => {})
       }
@@ -346,21 +423,37 @@ ${seq}
     } catch { return null }
   }
 
-  // ── Parse file artifact from tool result text ──────────────────────────────
+  // ── Parse file artifacts from tool result text ─────────────────────────────
+  // Returns ALL files mentioned in a single tool result (e.g. docx + html from one call)
 
-  function parseArtifactFromResult(toolName: string, result: string): Omit<Artifact, 'id' | 'createdAt'> | null {
-    // Match patterns like: 文件：filename.docx  or  文件：/Users/.../filename.xlsx
-    const fileMatch = result.match(/文件[路径]?[：:]\s*(.+\.(docx|xlsx|html|md|txt|csv|json|pdf))/i)
-    if (!fileMatch) return null
-    const rawName = fileMatch[1].trim()
-    // Could be just a filename or a full path
-    const name = rawName.includes('/') ? rawName.split('/').pop()! : rawName
-    const ext  = (name.split('.').pop() ?? 'file').toLowerCase()
-    const kind = (['docx','xlsx','html','md','txt'].includes(ext) ? ext : 'file') as Artifact['kind']
-    // Reconstruct path: if it's just a filename, assume Desktop
-    const filePath = rawName.startsWith('/') ? rawName
-      : `/Users/${process.env.USER || 'user'}/Desktop/${name}`
-    return { name, filePath, kind }
+  function parseArtifactsFromResult(
+    _toolName: string,
+    result: string
+  ): Omit<Artifact, 'id' | 'createdAt'>[] {
+    const homeDir = window.api.env.homeDir
+    // Match patterns: 文件：xxx.ext  文件名：xxx.ext  路径：~/Desktop/xxx.ext  路径：/Users/.../xxx.ext
+    const re = /(?:文件[名路径]?|路径)[：:]\s*([^\n\r]+?\.(docx|xlsx|pptx|html|md|txt|csv|json|pdf))/gi
+    const artifacts: Omit<Artifact, 'id' | 'createdAt'>[] = []
+    const seen = new Set<string>()
+
+    for (const m of result.matchAll(re)) {
+      const rawPath = m[1].trim()
+      // Expand ~ to real home dir (tools use app.getPath('home') which == homedir())
+      const fullPath = rawPath.startsWith('~/')
+        ? homeDir + rawPath.slice(1)
+        : rawPath.startsWith('/')
+          ? rawPath
+          : `${homeDir}/Desktop/${rawPath}`
+
+      const name = fullPath.split('/').pop()!
+      if (seen.has(name)) continue
+      seen.add(name)
+
+      const ext  = (name.split('.').pop() ?? '').toLowerCase()
+      const kind = (['docx','xlsx','pptx','html','md','txt'].includes(ext) ? ext : 'file') as Artifact['kind']
+      artifacts.push({ name, filePath: fullPath, kind })
+    }
+    return artifacts
   }
 
   // ── Auto title ─────────────────────────────────────────────────────────────
@@ -403,7 +496,7 @@ ${seq}
   }
 
   return {
-    conversations, currentConversationId, messages,
+    conversations, conversationsLoading, currentConversationId, messages,
     isStreaming, currentToolCalls, pendingSkillExtract, currentConversation, pendingNoteContext,
     sessionArtifacts,
     loadConversations, createConversation, selectConversation,

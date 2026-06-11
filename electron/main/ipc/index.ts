@@ -2,6 +2,7 @@ import { ipcMain, dialog, net, shell } from 'electron'
 import Store from 'electron-store'
 import fs from 'fs'
 import { randomUUID } from 'crypto'
+import JSZip from 'jszip'
 import { getDatabase } from '../db'
 
 const store = new Store()
@@ -31,9 +32,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('db:conversations:create', (_, c: any) => {
     getDatabase().prepare(`
-      INSERT INTO conversations (id, title, model, created_at, updated_at, system_prompt)
-      VALUES (@id, @title, @model, @createdAt, @updatedAt, @systemPrompt)
-    `).run({ id: c.id, title: c.title, model: c.model, createdAt: c.createdAt, updatedAt: c.updatedAt, systemPrompt: c.systemPrompt ?? null })
+      INSERT INTO conversations (id, title, model, created_at, updated_at, system_prompt, agent_id)
+      VALUES (@id, @title, @model, @createdAt, @updatedAt, @systemPrompt, @agentId)
+    `).run({ id: c.id, title: c.title, model: c.model, createdAt: c.createdAt, updatedAt: c.updatedAt, systemPrompt: c.systemPrompt ?? null, agentId: c.agentId ?? null })
     return c
   })
 
@@ -272,21 +273,23 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('db:export:markdown', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择导出目录',
-      properties: ['openDirectory', 'createDirectory']
-    })
-    if (canceled || !filePaths[0]) return { success: false, count: 0 }
     const db = getDatabase()
     const notes = db.prepare('SELECT * FROM notes').all() as any[]
-    const dir = filePaths[0]
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '导出笔记为 ZIP',
+      defaultPath: `deepseek-notes-${new Date().toISOString().slice(0, 10)}.zip`,
+      filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
+    })
+    if (canceled || !filePath) return { success: false, count: 0 }
+    const zip = new JSZip()
     for (const n of notes) {
       const safe = (n.title as string).replace(/[/\\:*?"<>|]/g, '_').slice(0, 80) || 'untitled'
       const fname = `${safe}_${(n.id as string).slice(0, 8)}.md`
-      const content = `# ${n.title}\n\n${n.content}`
-      fs.writeFileSync(`${dir}/${fname}`, content, 'utf-8')
+      zip.file(fname, `# ${n.title}\n\n${n.content}`)
     }
-    return { success: true, count: notes.length, dir }
+    const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    fs.writeFileSync(filePath, buf)
+    return { success: true, count: notes.length, dir: filePath }
   })
 
   // ── Import ────────────────────────────────────────────────────────────────
@@ -420,6 +423,160 @@ export function registerIpcHandlers(): void {
     getDatabase().prepare('DELETE FROM plugins WHERE id = ?').run(id)
   )
 
+  // ── Memories ─────────────────────────────────────────────────────────────
+  ipcMain.handle('db:memories:list', (_, opts: { limit?: number; category?: string } = {}) => {
+    const db = getDatabase()
+    const limit = Math.min(opts.limit ?? 20, 100)
+    if (opts.category) {
+      return db.prepare(`SELECT * FROM memories WHERE category = ? ORDER BY importance DESC, created_at DESC LIMIT ?`).all(opts.category, limit)
+    }
+    return db.prepare(`SELECT * FROM memories ORDER BY importance DESC, created_at DESC LIMIT ?`).all(limit)
+  })
+
+  ipcMain.handle('db:memories:create', (_, m: any) => {
+    const db = getDatabase()
+    const now = Date.now()
+    db.prepare(`INSERT INTO memories (id, content, category, importance, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(m.id, m.content, m.category ?? 'general', m.importance ?? 5, now, now)
+    return db.prepare('SELECT * FROM memories WHERE id = ?').get(m.id)
+  })
+
+  ipcMain.handle('db:memories:delete', (_, id: string) => {
+    getDatabase().prepare('DELETE FROM memories WHERE id = ?').run(id)
+  })
+
+  ipcMain.handle('db:memories:search', (_, query: string, limit = 10) => {
+    const db = getDatabase()
+    const q = `%${query.toLowerCase()}%`
+    return db.prepare(`SELECT * FROM memories WHERE LOWER(content) LIKE ? ORDER BY importance DESC, created_at DESC LIMIT ?`).all(q, limit)
+  })
+
+  ipcMain.handle('db:memories:update', (_, id: string, patch: { content?: string; importance?: number; isPinned?: boolean; isArchived?: boolean }) => {
+    const db = getDatabase()
+    const parts: string[] = ['updated_at = ?']
+    const vals: unknown[] = [Date.now()]
+    if (patch.content    !== undefined) { parts.push('content = ?');     vals.push(patch.content) }
+    if (patch.importance !== undefined) { parts.push('importance = ?');  vals.push(patch.importance) }
+    if (patch.isPinned   !== undefined) { parts.push('is_pinned = ?');   vals.push(patch.isPinned ? 1 : 0) }
+    if (patch.isArchived !== undefined) { parts.push('is_archived = ?'); vals.push(patch.isArchived ? 1 : 0) }
+    vals.push(id)
+    db.prepare(`UPDATE memories SET ${parts.join(', ')} WHERE id = ?`).run(...vals)
+  })
+
+  // 3-tier context loading: Pinned(≤5) + Keyword-matched(≤10) + High-importance recent(≤5)
+  // Also triggers passive forgetting curve (auto-archive stale low-importance memories)
+  ipcMain.handle('db:memories:loadContext', (_, userText: string) => {
+    const db = getDatabase()
+    const now = Date.now()
+    const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000
+
+    // Passive forgetting: auto-archive importance < 4 AND last_recalled > 60d AND recall_count < 3
+    db.prepare(`
+      UPDATE memories SET is_archived = 1, updated_at = ?
+      WHERE is_archived = 0
+        AND importance < 4
+        AND recall_count < 3
+        AND (last_recalled IS NULL OR last_recalled < ?)
+        AND created_at < ?
+    `).run(now, now - SIXTY_DAYS, now - SIXTY_DAYS)
+
+    // Tier 1: Pinned (always loaded, up to 5)
+    const pinned = db.prepare(`SELECT * FROM memories WHERE is_pinned = 1 AND is_archived = 0 ORDER BY importance DESC LIMIT 5`).all() as any[]
+    const pinnedIds = new Set(pinned.map((r: any) => r.id))
+
+    // Tier 2: Keyword-matched (tokenize userText, LIKE search)
+    const tokens = [...new Set((userText.toLowerCase().match(/[一-龥]{2,}|[a-z0-9]{3,}/g) ?? []))]
+    let keywordMatches: any[] = []
+    if (tokens.length > 0) {
+      const clauses = tokens.slice(0, 8).map(() => 'LOWER(content) LIKE ?').join(' OR ')
+      const params  = [...tokens.slice(0, 8).map(t => `%${t}%`), 15]
+      const rows = db.prepare(`SELECT * FROM memories WHERE is_archived = 0 AND (${clauses}) ORDER BY importance DESC, last_recalled DESC LIMIT ?`).all(...params) as any[]
+      keywordMatches = rows.filter((r: any) => !pinnedIds.has(r.id)).slice(0, 10)
+    }
+    const matchedIds = new Set(keywordMatches.map((r: any) => r.id))
+
+    // Tier 3: High-importance recent (fill up to 5 slots not already included)
+    const excluded = [...pinnedIds, ...matchedIds]
+    const excPlaceholders = excluded.length > 0 ? `AND id NOT IN (${excluded.map(() => '?').join(',')})` : ''
+    const recent = db.prepare(`SELECT * FROM memories WHERE is_archived = 0 ${excPlaceholders} ORDER BY importance DESC, created_at DESC LIMIT 5`).all(...excluded) as any[]
+
+    const all = [...pinned, ...keywordMatches, ...recent]
+    if (all.length === 0) return []
+
+    // Update recall_count + last_recalled for all returned memories
+    const recallStmt = db.prepare(`UPDATE memories SET recall_count = recall_count + 1, last_recalled = ?, updated_at = ? WHERE id = ?`)
+    for (const r of all) recallStmt.run(now, now, r.id)
+
+    return ccAll(all)
+  })
+
+  // AI consolidation: call DeepSeek from main process to merge/summarize memory bank
+  ipcMain.handle('db:memories:consolidate', async () => {
+    const db = getDatabase()
+    const apiUrl   = (store.get('apiUrl') as string | undefined)?.trim() ?? 'https://api.deepseek.com/v1'
+    const apiKey   = (store.get('apiKey') as string | undefined)?.trim() ?? ''
+    if (!apiKey) return { success: false, error: 'API Key 未配置' }
+
+    const allMems = db.prepare(`SELECT id, content, category, importance FROM memories WHERE is_archived = 0 ORDER BY importance DESC`).all() as any[]
+    if (allMems.length < 3) return { success: false, error: '记忆条数不足，无需整理' }
+
+    const memText = allMems.map((m: any, i: number) =>
+      `[${i + 1}] (${m.category}, 重要性${m.importance}) ${m.content}`
+    ).join('\n')
+
+    const prompt = `你是一个记忆管理助手。以下是用户的所有记忆条目，请帮我：
+1. 合并明显重复或高度相似的条目（相似度>70%）
+2. 删除过时或矛盾的条目
+3. 提升少于5条最重要的、值得长期记忆的条目的表述清晰度
+
+请以 JSON 格式返回：
+{
+  "keep": [{"id": "原ID", "content": "（可选）更新后的内容", "importance": 新重要性}],
+  "delete": ["要删除的ID列表"]
+}
+只输出 JSON，不要其他说明。
+
+记忆列表：
+${memText}`
+
+    try {
+      const res = await net.fetch(`${apiUrl.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.3,
+          response_format: { type: 'json_object' }
+        })
+      })
+      if (!res.ok) return { success: false, error: `API 错误 ${res.status}` }
+      const data = await res.json() as any
+      const raw = data.choices?.[0]?.message?.content ?? '{}'
+      const result = JSON.parse(raw)
+
+      const now2 = Date.now()
+      const tx = db.transaction(() => {
+        for (const item of (result.keep ?? [])) {
+          const parts: string[] = ['updated_at = ?']
+          const vals: unknown[] = [now2]
+          if (item.content)    { parts.push('content = ?');    vals.push(item.content) }
+          if (item.importance) { parts.push('importance = ?'); vals.push(item.importance) }
+          vals.push(item.id)
+          db.prepare(`UPDATE memories SET ${parts.join(', ')} WHERE id = ?`).run(...vals)
+        }
+        for (const id of (result.delete ?? [])) {
+          db.prepare('DELETE FROM memories WHERE id = ?').run(id)
+        }
+      })
+      tx()
+      return { success: true, kept: (result.keep ?? []).length, deleted: (result.delete ?? []).length }
+    } catch (e: any) {
+      return { success: false, error: e?.message ?? String(e) }
+    }
+  })
+
   // ── Generic API test (runs in main process, no CSP) ──────────────────────
   ipcMain.handle('api:test', async (_, { url, apiKey, model }: { url: string; apiKey: string; model: string }) => {
     const safeKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim()
@@ -472,6 +629,34 @@ export function registerIpcHandlers(): void {
     } catch (e: any) {
       return { ok: false, error: e?.message ?? String(e) }
     }
+  })
+
+  // ── Export conversation ───────────────────────────────────────────────────
+  ipcMain.handle('db:conversations:export', async (_, id: string) => {
+    const db = getDatabase()
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as any
+    if (!conv) return { success: false, error: 'not found' }
+    const messages = db.prepare(
+      `SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC`
+    ).all(id) as any[]
+
+    const title = conv.title || '对话'
+    let md = `# ${title}\n\n`
+    md += `> 导出时间：${new Date().toLocaleString('zh-CN')}\n\n---\n\n`
+    for (const m of messages) {
+      if (m.role === 'system') continue
+      md += m.role === 'user' ? `**👤 用户**\n\n` : `**🤖 DeepSeek**\n\n`
+      md += `${m.content}\n\n---\n\n`
+    }
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '导出对话',
+      defaultPath: `${title.replace(/[/\\:*?"<>|]/g, '_').slice(0, 60)}-${new Date().toISOString().slice(0, 10)}.md`,
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    })
+    if (canceled || !filePath) return { success: false }
+    fs.writeFileSync(filePath, md, 'utf-8')
+    return { success: true, filePath }
   })
 
   // ── Shell ─────────────────────────────────────────────────────────────────
