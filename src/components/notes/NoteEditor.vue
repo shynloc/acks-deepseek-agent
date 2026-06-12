@@ -78,7 +78,7 @@
         </div>
 
         <!-- ── Toolbar ── -->
-        <div class="flex items-center gap-1 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-850 shrink-0 flex-wrap">
+        <div class="flex items-center gap-1 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 shrink-0 flex-wrap">
           <template v-for="item in toolbar" :key="item.label">
             <div v-if="item.sep" class="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
             <button
@@ -148,7 +148,7 @@
             :class="viewMode === 'split' ? '' : 'w-full'"
           >
             <!-- WeChat copy bar -->
-            <div class="shrink-0 flex items-center justify-end gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-850/80">
+            <div class="shrink-0 flex items-center justify-end gap-2 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
               <button
                 class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all"
                 :class="wechatCopied
@@ -162,9 +162,9 @@
                 <span v-else>{{ wechatCopied ? '✓ 已复制' : '复制到公众号' }}</span>
               </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-5">
+            <div class="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
               <div
-                class="md-preview"
+                class="md-preview min-h-full p-6"
                 :class="`theme-${currentTheme}`"
                 v-html="renderedHtml"
               />

@@ -120,6 +120,10 @@ const api = {
       return () => ipcRenderer.removeListener('agent:error', h)
     }
   },
+  clipboard: {
+    writeHtml: (html: string, text: string): Promise<void> =>
+      ipcRenderer.invoke('clipboard:writeHtml', html, text)
+  },
   shell: {
     openPath:          (p: string) => ipcRenderer.invoke('shell:openPath', p),
     showItemInFolder:  (p: string) => ipcRenderer.invoke('shell:showItemInFolder', p),

@@ -1,4 +1,4 @@
-import { ipcMain, dialog, net, shell } from 'electron'
+import { ipcMain, dialog, net, shell, clipboard } from 'electron'
 import Store from 'electron-store'
 import fs from 'fs'
 import { randomUUID } from 'crypto'
@@ -19,6 +19,11 @@ function ccAll(rows: Record<string, unknown>[]): Record<string, unknown>[] {
 }
 
 export function registerIpcHandlers(): void {
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+  ipcMain.handle('clipboard:writeHtml', (_, html: string, text: string) => {
+    clipboard.write({ html, text })
+  })
+
   // ── Config ────────────────────────────────────────────────────────────────
   ipcMain.handle('config:get', (_, key: string) => store.get(key))
   ipcMain.handle('config:set', (_, key: string, value: unknown) => { store.set(key, value as any) })
