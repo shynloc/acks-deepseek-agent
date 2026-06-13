@@ -45,10 +45,16 @@
             <option value="clean">清隽阅读</option>
             <option value="business">商务报告</option>
             <option value="technical">技术文档</option>
+            <option value="darkcode">暗夜代码</option>
+            <option value="social">社交长图</option>
+            <option value="academic">学术论文</option>
             <option value="wechat">公众号</option>
-            <option value="aireport">AI 报告</option>
             <option value="magazine">杂志随笔</option>
+            <option value="aireport">AI 报告</option>
+            <option value="euro">欧式古典</option>
             <option value="cnclassic">中式古典</option>
+            <option value="cnvertical">中式竖排</option>
+            <option value="poster">前卫海报</option>
           </select>
 
           <!-- View mode toggle -->
@@ -292,7 +298,9 @@ const wechatCopied = ref(false)
 
 const THEME_LABELS: Record<string, string> = {
   clean: '清隽阅读', business: '商务报告', technical: '技术文档',
-  wechat: '公众号', aireport: 'AI报告', magazine: '杂志随笔', cnclassic: '中式古典',
+  darkcode: '暗夜代码', social: '社交长图', academic: '学术论文',
+  wechat: '公众号', magazine: '杂志随笔', aireport: 'AI报告',
+  euro: '欧式古典', cnclassic: '中式古典', cnvertical: '中式竖排', poster: '前卫海报',
 }
 const themeLabel = computed(() => THEME_LABELS[currentTheme.value] ?? currentTheme.value)
 
