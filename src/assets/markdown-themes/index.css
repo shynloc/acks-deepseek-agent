@@ -14,7 +14,7 @@
 }
 .md-preview * { box-sizing: border-box; }
 .md-preview img { max-width: 100%; height: auto; display: block; }
-.md-preview pre { overflow-x: auto; }
+.md-preview pre { overflow: hidden; }
 .md-preview pre code {
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
   background: transparent !important;
@@ -24,6 +24,7 @@
   font-size: .84em;
   line-height: 1.7;
   white-space: pre;
+  overflow-x: auto;
 }
 .md-preview :not(pre) > code {
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
@@ -738,3 +739,43 @@
 .dark .md-preview.theme-cnclassic th { background: #201812; color: #E0D4BE; border-color: #302418; }
 .dark .md-preview.theme-cnclassic td { border-color: #251C12; }
 .dark .md-preview.theme-cnclassic tbody tr:nth-child(even) { background: #1A150F; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CODE BLOCK DECORATIVE BARS  (macOS-style 3-dot top bar)
+   juice converts ::before to a real <span> when copying to WeChat,
+   so the bar survives paste into WeChat's editor.
+══════════════════════════════════════════════════════════════════ */
+
+/* clean — light pre in light mode needs a light bar */
+.md-preview.theme-clean pre::before {
+  content: '● ● ●';
+  display: block;
+  padding: 8px 14px;
+  font-size: 10px;
+  letter-spacing: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #C0AE98;
+  background: #ECE6D9;
+  border-bottom: 1px solid #DED8CC;
+}
+
+/* all other themes have dark pre blocks in both light and dark modes;
+   clean dark also falls into this group */
+.md-preview.theme-business pre::before,
+.md-preview.theme-technical pre::before,
+.md-preview.theme-wechat pre::before,
+.md-preview.theme-aireport pre::before,
+.md-preview.theme-magazine pre::before,
+.md-preview.theme-cnclassic pre::before,
+.dark .md-preview.theme-clean pre::before {
+  content: '● ● ●';
+  display: block;
+  padding: 8px 14px;
+  font-size: 10px;
+  letter-spacing: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.28);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}

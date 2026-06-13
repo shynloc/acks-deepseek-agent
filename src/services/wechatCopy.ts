@@ -1,56 +1,78 @@
 // Copies rendered Markdown as WeChat-compatible rich text.
-// WeChat's editor strips <style> tags and class attributes — we inline
-// computed styles before writing HTML to the clipboard via Electron's
-// native clipboard API (navigator.clipboard.write doesn't support text/html in Electron).
+// juice inlines ALL CSS (including ::before/::after pseudo-elements) into inline styles,
+// since WeChat's editor strips <style> tags and class attributes on paste.
+// Electron's native clipboard API is used — navigator.clipboard.write doesn't support
+// text/html in Electron's renderer process.
 
-const INLINE_PROPS = [
-  'color', 'background-color',
-  'font-family', 'font-size', 'font-weight', 'font-style',
-  'line-height', 'letter-spacing', 'text-align', 'text-indent',
-  'text-decoration', 'text-decoration-color', 'text-decoration-style',
-  'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
-  'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
-  'border-left', 'border-top', 'border-bottom', 'border-right', 'border-radius',
-  'display', 'float', 'word-break', 'white-space', 'max-width', 'width',
-] as const
+import juice from 'juice'
+import rawCss from '@/assets/markdown-themes/index.css?inline'
 
-const SKIP_VALUES = new Set(['none', 'normal', 'auto', '0px', 'rgba(0, 0, 0, 0)', 'initial', 'inherit'])
+// Remove the CSS gradient-text technique — WeChat renders -webkit-background-clip:text
+// as invisible (transparent). Strip gradient+clip so the element inherits body text color.
+function fixGradientText(html: string): string {
+  return html.replace(/style="([^"]*?)"/g, (match, styleAttr: string) => {
+    const hasClip =
+      /-webkit-background-clip\s*:\s*text/i.test(styleAttr) ||
+      /\bbackground-clip\s*:\s*text/i.test(styleAttr)
+    if (!hasClip) return match
 
-function inlineStyles(el: Element): void {
-  const computed = window.getComputedStyle(el)
-  const style = (el as HTMLElement).style
-  for (const prop of INLINE_PROPS) {
-    const val = computed.getPropertyValue(prop).trim()
-    if (val && !SKIP_VALUES.has(val)) {
-      style.setProperty(prop, val)
-    }
-  }
-  el.removeAttribute('class')
-  el.removeAttribute('id')
-  for (const child of Array.from(el.children)) {
-    inlineStyles(child)
-  }
+    let s = styleAttr
+    s = s.replace(/-webkit-background-clip\s*:\s*text\s*;?\s*/gi, '')
+    s = s.replace(/\bbackground-clip\s*:\s*text\s*;?\s*/gi, '')
+    s = s.replace(/-webkit-text-fill-color\s*:\s*transparent\s*;?\s*/gi, '')
+    s = s.replace(/\bcolor\s*:\s*transparent\s*;?\s*/gi, '')
+    // Remove the gradient background (was only useful for text clipping, now orphaned)
+    s = s.replace(
+      /\bbackground\s*:\s*(?:linear|radial)-gradient\([^;)]*(?:\([^)]*\)[^;)]*)*\)\s*;?\s*/gi,
+      ''
+    )
+    return `style="${s}"`
+  })
 }
 
-export async function copyToWeChat(
-  renderedHtml: string,
-  theme: string
-): Promise<void> {
-  const wrap = document.createElement('div')
-  wrap.className = `md-preview theme-${theme}`
-  wrap.style.cssText = 'position:absolute;left:-9999px;top:0;width:680px;visibility:hidden;'
-  wrap.innerHTML = renderedHtml
-  document.body.appendChild(wrap)
+// Protect code-block indentation — WeChat's editor strips leading spaces on paste.
+// Non-breaking spaces (U+00A0) survive where regular spaces don't.
+function protectCodeIndent(html: string): string {
+  const NBSP = ' '
+  return html.replace(
+    /(<pre\b[^>]*>)([\s\S]*?)(<\/pre>)/gi,
+    (_: string, preOpen: string, preContent: string, preClose: string) => {
+      const fixed = preContent.replace(
+        /(<code\b[^>]*>)([\s\S]*?)(<\/code>)/gi,
+        (__: string, codeOpen: string, code: string, codeClose: string) => {
+          const indented = code
+            .replace(/^( +)/gm, (spaces: string) => NBSP.repeat(spaces.length))
+            .replace(/\t/g, NBSP + NBSP)
+          return codeOpen + indented + codeClose
+        }
+      )
+      return preOpen + fixed + preClose
+    }
+  )
+}
 
-  // Two rAFs: first applies layout, second lets computed styles settle
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+export async function copyToWeChat(renderedHtml: string, theme: string): Promise<void> {
+  const wrapper = `<div class="md-preview theme-${theme}">${renderedHtml}</div>`
 
-  const plainText = wrap.innerText ?? wrap.textContent ?? ''
-  inlineStyles(wrap)
-  const html = `<meta charset="utf-8">${wrap.innerHTML}`
+  // juice inlines all CSS selectors as inline styles, and converts ::before/::after
+  // pseudo-elements into real <span> elements so WeChat sees them
+  let inlined = juice.inlineContent(wrapper, rawCss, {
+    inlinePseudoElements: true,
+    preserveImportant: true,
+    applyWidthAttributes: false,
+    applyTableAttributes: false,
+  })
 
-  document.body.removeChild(wrap)
+  inlined = fixGradientText(inlined)
+  inlined = protectCodeIndent(inlined)
 
-  // Use Electron's native clipboard (navigator.clipboard.write doesn't support text/html in Electron)
-  await (window as any).api.clipboard.writeHtml(html, plainText)
+  // Extract plain-text fallback for clipboard
+  const tmp = document.createElement('div')
+  tmp.innerHTML = inlined
+  const plainText = tmp.innerText ?? tmp.textContent ?? ''
+
+  await (window as any).api.clipboard.writeHtml(
+    `<meta charset="utf-8">${inlined}`,
+    plainText
+  )
 }
