@@ -89,6 +89,9 @@ const api = {
     sync:   (): Promise<{ ok: boolean; pushed?: number; pulled?: number; syncedAt?: number; error?: string }> => ipcRenderer.invoke('webdav:sync'),
     status: (): Promise<{ lastSyncAt: number }> => ipcRenderer.invoke('webdav:status'),
   },
+  embedding: {
+    test: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('embedding:test'),
+  },
   semantic: {
     embed:    (noteId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('semantic:embed', noteId),

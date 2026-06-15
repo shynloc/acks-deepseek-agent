@@ -73,8 +73,20 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const webdavConfigured = computed(() => !!webdavUrl.value.trim())
 
-  // ── Embedding model ───────────────────────────────────────────────────────
-  const embeddingModel = ref('text-embedding-3-small')
+  // ── Embedding (内置插件，支持多供应商) ───────────────────────────────────────
+  const embeddingProvider      = ref<'siliconflow'|'jina'|'voyage'|'ollama'>('siliconflow')
+  const embeddingModel         = ref('BAAI/bge-m3')
+  const embeddingApiKey        = ref('')
+  const embeddingBaseUrl       = ref('https://api.siliconflow.cn/v1')
+  const embeddingPluginEnabled = ref(true)
+  const isTestingEmbedding     = ref(false)
+  const embeddingTestResult    = ref<'success'|'fail'|null>(null)
+  const embeddingTestError     = ref('')
+
+  const embeddingConfigured = computed(() =>
+    embeddingProvider.value === 'ollama' || !!embeddingApiKey.value.trim()
+  )
+  const embeddingActive = computed(() => embeddingConfigured.value && embeddingPluginEnabled.value)
 
   // ── Picbed (Cloudflare Worker + R2) ──────────────────────────────────────
   const picbedUrl           = ref('')
@@ -118,7 +130,11 @@ export const useSettingsStore = defineStore('settings', () => {
     webdavUrl.value   = (await window.api.config.get('webdavUrl')   as string) ?? ''
     webdavUser.value  = (await window.api.config.get('webdavUser')  as string) ?? ''
     webdavPass.value  = (await window.api.config.get('webdavPass')  as string) ?? ''
-    embeddingModel.value = (await window.api.config.get('embeddingModel') as string) ?? 'text-embedding-3-small'
+    embeddingProvider.value      = (await window.api.config.get('embeddingProvider')      as string)  ?? 'siliconflow'
+    embeddingModel.value         = (await window.api.config.get('embeddingModel')         as string)  ?? 'BAAI/bge-m3'
+    embeddingApiKey.value        = (await window.api.config.get('embeddingApiKey')        as string)  ?? ''
+    embeddingBaseUrl.value       = (await window.api.config.get('embeddingBaseUrl')       as string)  ?? 'https://api.siliconflow.cn/v1'
+    embeddingPluginEnabled.value = (await window.api.config.get('embeddingPluginEnabled') as boolean) ?? true
     const wdStatus = await window.api.webdav.status()
     webdavLastSync.value = wdStatus.lastSyncAt
     _loaded = true
@@ -151,7 +167,11 @@ export const useSettingsStore = defineStore('settings', () => {
     await window.api.config.set('webdavUrl',   webdavUrl.value)
     await window.api.config.set('webdavUser',  webdavUser.value)
     await window.api.config.set('webdavPass',  webdavPass.value)
-    await window.api.config.set('embeddingModel', embeddingModel.value)
+    await window.api.config.set('embeddingProvider',      embeddingProvider.value)
+    await window.api.config.set('embeddingModel',         embeddingModel.value)
+    await window.api.config.set('embeddingApiKey',        embeddingApiKey.value)
+    await window.api.config.set('embeddingBaseUrl',       embeddingBaseUrl.value)
+    await window.api.config.set('embeddingPluginEnabled', embeddingPluginEnabled.value)
   }
 
   async function testApi(): Promise<void> {
@@ -247,6 +267,25 @@ export const useSettingsStore = defineStore('settings', () => {
     isTestingPicbed.value = false
   }
 
+  async function testEmbeddingApi(): Promise<void> {
+    isTestingEmbedding.value  = true
+    embeddingTestResult.value = null
+    embeddingTestError.value  = ''
+    try {
+      const result = await (window.api as any).embedding.test()
+      if (result.ok) {
+        embeddingTestResult.value = 'success'
+      } else {
+        embeddingTestResult.value = 'fail'
+        embeddingTestError.value  = result.error ?? '连接失败'
+      }
+    } catch (e: any) {
+      embeddingTestResult.value = 'fail'
+      embeddingTestError.value  = e.message ?? '连接失败'
+    }
+    isTestingEmbedding.value = false
+  }
+
   return {
     apiKey, baseUrl, model, maxTokens, temperature, isTesting, testResult,
     userName, userRole, userContext, userEnabled,
@@ -260,10 +299,12 @@ export const useSettingsStore = defineStore('settings', () => {
     agentPowerMode,
     webdavUrl, webdavUser, webdavPass, webdavConfigured, webdavLastSync,
     webdavSyncing, webdavSyncResult, webdavTestResult, webdavTestError, isTestingWebdav,
-    embeddingModel,
+    embeddingProvider, embeddingModel, embeddingApiKey, embeddingBaseUrl,
+    embeddingPluginEnabled, embeddingConfigured, embeddingActive,
+    isTestingEmbedding, embeddingTestResult, embeddingTestError,
     picbedUrl, picbedToken, picbedPluginEnabled, picbedConfigured, picbedActive,
     isTestingPicbed, picbedTestResult, picbedTestError,
     load, save, testApi, testVisionApi, testMemosConnection, runMemosSync,
-    testWebDavConnection, runWebDavSync, testPicbedConnection
+    testWebDavConnection, runWebDavSync, testPicbedConnection, testEmbeddingApi
   }
 })

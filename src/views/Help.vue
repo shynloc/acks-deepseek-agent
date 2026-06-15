@@ -366,17 +366,39 @@ onUnmounted(() => { observers.forEach(o => o.disconnect()) })
           <p class="text-zinc-600 dark:text-zinc-400 mb-4">用自然语言描述你想找的内容，AI 会返回语义相近的笔记，而不仅仅是关键词匹配。</p>
 
           <div class="mb-5 p-4 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
-            <p class="text-sm font-semibold text-purple-800 dark:text-purple-300 mb-1">使用前需准备</p>
-            <p class="text-sm text-purple-700 dark:text-purple-400">需要 Embedding API 访问权限。支持 OpenAI 格式的 Embedding 接口（如 OpenAI <code class="bg-purple-100 dark:bg-purple-900 px-1 rounded">text-embedding-3-small</code>，或兼容服务）。</p>
+            <p class="text-sm font-semibold text-purple-800 dark:text-purple-300 mb-2">使用前需准备</p>
+            <p class="text-sm text-purple-700 dark:text-purple-400 mb-3"><strong>DeepSeek 不提供 Embedding API</strong>，需单独申请以下免费服务之一：</p>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-white dark:bg-purple-900/30 rounded-lg p-2.5 border border-purple-200 dark:border-purple-700">
+                <p class="font-semibold text-purple-900 dark:text-purple-200">硅基流动 ⭐ 推荐</p>
+                <p class="text-purple-600 dark:text-purple-400 mt-0.5">免费额度 · 中文优化 · 国内速度快</p>
+                <p class="text-purple-500 font-mono mt-0.5">BAAI/bge-m3</p>
+              </div>
+              <div class="bg-white dark:bg-purple-900/30 rounded-lg p-2.5 border border-purple-200 dark:border-purple-700">
+                <p class="font-semibold text-purple-900 dark:text-purple-200">Jina AI</p>
+                <p class="text-purple-600 dark:text-purple-400 mt-0.5">100万 tokens/月永久免费</p>
+                <p class="text-purple-500 font-mono mt-0.5">jina-embeddings-v3</p>
+              </div>
+              <div class="bg-white dark:bg-purple-900/30 rounded-lg p-2.5 border border-purple-200 dark:border-purple-700">
+                <p class="font-semibold text-purple-900 dark:text-purple-200">Voyage AI</p>
+                <p class="text-purple-600 dark:text-purple-400 mt-0.5">5000万 tokens/月免费</p>
+                <p class="text-purple-500 font-mono mt-0.5">voyage-3-lite</p>
+              </div>
+              <div class="bg-white dark:bg-purple-900/30 rounded-lg p-2.5 border border-purple-200 dark:border-purple-700">
+                <p class="font-semibold text-purple-900 dark:text-purple-200">Ollama（本地）</p>
+                <p class="text-purple-600 dark:text-purple-400 mt-0.5">完全免费 · 离线可用</p>
+                <p class="text-purple-500 font-mono mt-0.5">nomic-embed-text</p>
+              </div>
+            </div>
           </div>
 
           <div class="space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
             <div>
-              <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 mb-2">配置步骤</h3>
+              <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 mb-2">配置步骤（以硅基流动为例）</h3>
               <div class="space-y-1">
-                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>进入 <strong>个人中心 → 语义搜索</strong></span></div>
-                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>填写 Embedding 模型名称（默认 <code class="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">text-embedding-3-small</code>），API Key 与 AI 笔记共用</span></div>
-                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>点击「全量建立索引」为现有笔记生成向量（首次使用需等待）</span></div>
+                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>注册 <code class="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">siliconflow.cn</code> 获取 API Key</span></div>
+                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>进入 <strong>个人中心 → 语义搜索配置</strong>，点击「硅基流动（推荐）」快速填入</span></div>
+                <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>粘贴 API Key，点击「全量建立索引」（首次需等待）</span></div>
                 <div class="flex items-start gap-2"><ChevronRight class="w-3.5 h-3.5 mt-0.5 text-purple-500 shrink-0" /><span>之后每次保存笔记时自动更新索引</span></div>
               </div>
             </div>

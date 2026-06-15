@@ -93,15 +93,18 @@ export const useMemoriesStore = defineStore('memories', () => {
     }
   }
 
-  async function consolidate(): Promise<{ kept: number; deleted: number } | null> {
+  async function consolidate(): Promise<{ kept: number; deleted: number; merged: number; error?: string } | null> {
     consolidating.value = true
     try {
       const result = await (window.api.db as any).memories.consolidate() as any
       if (result.success) {
         await load()
-        return { kept: result.kept ?? 0, deleted: result.deleted ?? 0 }
+        return { kept: result.kept ?? 0, deleted: result.deleted ?? 0, merged: result.merged ?? 0 }
       }
-      return null
+      // Return error message so UI can show the real reason
+      return { kept: 0, deleted: 0, merged: 0, error: result.error ?? '整理失败' }
+    } catch (e: any) {
+      return { kept: 0, deleted: 0, merged: 0, error: e?.message ?? String(e) }
     } finally {
       consolidating.value = false
     }

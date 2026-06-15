@@ -1,3 +1,6 @@
+import os from 'os'
+import path from 'path'
+import { app } from 'electron'
 import { toolRegistry } from '../registry'
 
 toolRegistry.register({
@@ -17,6 +20,43 @@ toolRegistry.register({
     weekday: ['日', '一', '二', '三', '四', '五', '六'][new Date().getDay()],
     timestamp: Date.now()
   })
+})
+
+toolRegistry.register({
+  name: 'get_system_info',
+  emoji: '💻',
+  idempotent: true,
+  schema: {
+    name: 'get_system_info',
+    description: '获取当前运行环境信息：操作系统、内存、CPU、Node.js 版本、应用版本等。当用户问"帮我检查运行环境"或"我的电脑配置"时使用。',
+    parameters: { type: 'object', properties: {} }
+  },
+  handler: async () => {
+    const cpus = os.cpus()
+    // os.type(): 'Darwin' | 'Windows_NT' | 'Linux'
+    const platformLabel: Record<string, string> = {
+      darwin:  'macOS',
+      win32:   'Windows',
+      linux:   'Linux'
+    }
+    return JSON.stringify({
+      platform:    platformLabel[process.platform] ?? process.platform,
+      osType:      os.type(),      // Darwin / Windows_NT / Linux
+      osRelease:   os.release(),   // kernel / build version
+      arch:        os.arch(),      // x64 / arm64
+      cpuModel:    cpus[0]?.model ?? 'unknown',
+      cpuCount:    cpus.length,
+      totalMemGB:  (os.totalmem() / 1_073_741_824).toFixed(1),
+      freeMemGB:   (os.freemem()  / 1_073_741_824).toFixed(1),
+      nodeVersion: process.versions.node,
+      electronVer: process.versions.electron,
+      chromeVer:   process.versions.chrome,
+      appVersion:  app.getVersion(),
+      homeDir:     os.homedir(),
+      locale:      app.getLocale(),
+      pathSep:     path.sep   // '/' on Mac/Linux, '\' on Windows
+    })
+  }
 })
 
 toolRegistry.register({

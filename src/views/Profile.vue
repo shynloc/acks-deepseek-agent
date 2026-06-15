@@ -19,10 +19,26 @@ import ActivityChart from '@/components/ActivityChart.vue'
 
 const uiStore  = useUIStore()
 const settings = useSettingsStore()
-const webSearchExpanded = ref(false)
-const visionExpanded    = ref(false)
-const memosExpanded     = ref(false)
-const picbedExpanded    = ref(false)
+const webSearchExpanded   = ref(false)
+const visionExpanded      = ref(false)
+const memosExpanded       = ref(false)
+const picbedExpanded      = ref(false)
+const embeddingExpanded   = ref(false)
+
+const EMBEDDING_PROVIDERS = [
+  { id: 'siliconflow', name: '硅基流动', badge: '免费·推荐', model: 'BAAI/bge-m3',          needKey: true  },
+  { id: 'jina',        name: 'Jina AI',  badge: '免费·1M/月',model: 'jina-embeddings-v3',    needKey: true  },
+  { id: 'voyage',      name: 'Voyage AI',badge: '免费·50M/月',model: 'voyage-3-lite',         needKey: true  },
+  { id: 'ollama',      name: 'Ollama',   badge: '本地·免费',  model: 'nomic-embed-text',       needKey: false },
+] as const
+
+type EmbeddingProviderId = typeof EMBEDDING_PROVIDERS[number]['id']
+
+function selectEmbeddingProvider(p: { id: EmbeddingProviderId; model: string }) {
+  settings.embeddingProvider = p.id
+  settings.embeddingModel    = p.model
+  settings.save()
+}
 const skillsStore   = useSkillsStore()
 const pluginsStore  = usePluginsStore()
 const memoriesStore = useMemoriesStore()
@@ -72,11 +88,19 @@ const displayedMemories = computed(() =>
 
 async function consolidateMemories() {
   const result = await memoriesStore.consolidate()
-  if (result) {
-    showStatus('success', `🧬 整理完成：保留 ${result.kept} 条，删除 ${result.deleted} 条`)
-  } else {
-    showStatus('error', '整理失败，请检查 API Key 是否配置')
+  if (!result) {
+    showStatus('error', '整理失败，请稍后重试')
+    return
   }
+  if (result.error) {
+    showStatus('error', `整理失败：${result.error}`)
+    return
+  }
+  const parts: string[] = []
+  if (result.merged)  parts.push(`合并 ${result.merged} 组`)
+  if (result.deleted) parts.push(`删除 ${result.deleted} 条`)
+  if (result.kept)    parts.push(`保留 ${result.kept} 条`)
+  showStatus('success', `整理完成：${parts.join('，') || '无变更'}`)
 }
 
 // ── Plugin management ─────────────────────────────────────────────────────────
@@ -440,7 +464,7 @@ async function importMarkdown() {
             <Puzzle class="w-4 h-4 text-blue-500" />
             <h2 class="text-base font-semibold">内置插件</h2>
           </div>
-          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive].filter(Boolean).length }}/4 已激活</span>
+          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive, settings.embeddingActive].filter(Boolean).length }}/5 已激活</span>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
           官方内置的能力扩展，可独立开关，不影响其他功能。
@@ -774,6 +798,123 @@ async function importMarkdown() {
                 <span v-else-if="settings.picbedTestResult === 'fail'" class="text-xs text-red-500 flex items-center gap-1">
                   <XCircle class="w-3.5 h-3.5" /> {{ settings.picbedTestError }}
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 语义搜索 ── -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="text-xl shrink-0">🔍</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">语义搜索</span>
+                  <span class="text-xs text-gray-400">{{ EMBEDDING_PROVIDERS.find(p => p.id === settings.embeddingProvider)?.name ?? settings.embeddingProvider }}</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    :class="settings.embeddingActive
+                      ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
+                      : settings.embeddingConfigured
+                        ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                  >
+                    {{ settings.embeddingActive ? '已激活' : settings.embeddingConfigured ? '已配置·已关闭' : '未配置' }}
+                  </span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-0.5">为笔记构建向量索引，支持「以意搜意」的语义检索</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  @click="settings.embeddingPluginEnabled = !settings.embeddingPluginEnabled; settings.save()"
+                  :disabled="!settings.embeddingConfigured"
+                  class="transition-colors disabled:opacity-40"
+                  :class="settings.embeddingActive ? 'text-indigo-500 hover:text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :title="settings.embeddingConfigured ? (settings.embeddingPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 API Key'"
+                >
+                  <ToggleRight v-if="settings.embeddingActive" class="w-6 h-6" />
+                  <ToggleLeft  v-else                          class="w-6 h-6" />
+                </button>
+                <button
+                  @click="embeddingExpanded = !embeddingExpanded"
+                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <ChevronDown class="w-4 h-4 transition-transform" :class="embeddingExpanded ? 'rotate-180' : ''" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Expanded config -->
+            <div v-if="embeddingExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+              <!-- Provider selector -->
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1.5">选择供应商</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    v-for="p in EMBEDDING_PROVIDERS"
+                    :key="p.id"
+                    @click="selectEmbeddingProvider(p)"
+                    class="text-left px-3 py-2 rounded-lg border text-[11px] transition-all"
+                    :class="settings.embeddingProvider === p.id
+                      ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'"
+                  >
+                    <span class="font-semibold block">{{ p.name }}</span>
+                    <span class="text-gray-400 dark:text-gray-500">{{ p.badge }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- API Key (hidden for Ollama) -->
+              <div v-if="EMBEDDING_PROVIDERS.find(p => p.id === settings.embeddingProvider)?.needKey !== false">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">API Key</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model="settings.embeddingApiKey"
+                    type="password"
+                    :placeholder="settings.embeddingProvider === 'siliconflow' ? 'sk-xxxxxxxx（注册 siliconflow.cn 获取）' : '输入 API Key…'"
+                    class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    @blur="settings.save()"
+                  />
+                  <button
+                    @click="settings.testEmbeddingApi()"
+                    :disabled="!settings.embeddingApiKey || settings.isTestingEmbedding"
+                    class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <Loader v-if="settings.isTestingEmbedding" class="w-3 h-3 animate-spin" />
+                    <CheckCircle v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
+                    <XCircle    v-else-if="settings.embeddingTestResult === 'fail'"    class="w-3 h-3 text-red-500" />
+                    测试
+                  </button>
+                </div>
+                <p v-if="settings.embeddingTestResult === 'success'" class="text-[11px] text-emerald-500 mt-1">✓ 连接成功，向量模型可用</p>
+                <p v-else-if="settings.embeddingTestResult === 'fail'" class="text-[11px] text-red-500 mt-1">✗ {{ settings.embeddingTestError }}</p>
+              </div>
+
+              <!-- Ollama hint -->
+              <div v-else class="flex items-center gap-2">
+                <button
+                  @click="settings.testEmbeddingApi()"
+                  :disabled="settings.isTestingEmbedding"
+                  class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  <Loader v-if="settings.isTestingEmbedding" class="w-3 h-3 animate-spin" />
+                  <CheckCircle v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
+                  <XCircle    v-else-if="settings.embeddingTestResult === 'fail'"    class="w-3 h-3 text-red-500" />
+                  测试 Ollama 连接
+                </button>
+                <span class="text-[11px] text-gray-400">需先运行 <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded font-mono">ollama pull nomic-embed-text</code></span>
+              </div>
+
+              <!-- Model override -->
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">模型名称</label>
+                <input
+                  v-model="settings.embeddingModel"
+                  type="text"
+                  placeholder="留空使用供应商默认模型"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  @blur="settings.save()"
+                />
               </div>
             </div>
           </div>
@@ -1427,17 +1568,6 @@ async function importMarkdown() {
             <span v-else>同步失败：{{ settings.webdavSyncResult.error }}</span>
           </div>
 
-          <!-- Embedding model -->
-          <div class="pt-1 border-t border-gray-200 dark:border-gray-700">
-            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">AI 语义搜索 Embedding 模型</label>
-            <input
-              v-model="settings.embeddingModel"
-              placeholder="text-embedding-3-small"
-              class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
-              @blur="settings.save()"
-            />
-            <p class="text-[11px] text-gray-400 mt-1">使用 OpenAI 兼容的 Embedding API，需 API Key 支持此模型</p>
-          </div>
         </div>
       </section>
 

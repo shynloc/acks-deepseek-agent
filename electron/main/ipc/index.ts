@@ -6,7 +6,7 @@ import JSZip from 'jszip'
 import { getDatabase } from '../db'
 import { testConnection, syncMemos } from '../sync/memos'
 import { testWebDav, syncNotes as webdavSyncNotes } from '../sync/webdav'
-import { embedText, cosineSimilarity, getEmbeddingModel } from '../services/embedding'
+import { embedText, cosineSimilarity, getEmbeddingModel, testEmbedding } from '../services/embedding'
 
 const store = new Store()
 
@@ -528,65 +528,125 @@ export function registerIpcHandlers(): void {
   // AI consolidation: call DeepSeek from main process to merge/summarize memory bank
   ipcMain.handle('db:memories:consolidate', async () => {
     const db = getDatabase()
-    const apiUrl   = (store.get('apiUrl') as string | undefined)?.trim() ?? 'https://api.deepseek.com/v1'
-    const apiKey   = (store.get('apiKey') as string | undefined)?.trim() ?? ''
-    if (!apiKey) return { success: false, error: 'API Key 未配置' }
+    const baseUrl = (store.get('baseUrl') as string | undefined)?.trim() ?? 'https://api.deepseek.com'
+    const apiKey  = (store.get('apiKey')  as string | undefined)?.trim() ?? ''
+    const model   = (store.get('model')   as string | undefined)?.trim() || 'deepseek-chat'
+    if (!apiKey) return { success: false, error: 'API Key 未配置，请前往个人中心 → API 配置填写' }
+    const endpoint = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '') + '/v1/chat/completions'
+    console.log('[consolidate] endpoint:', endpoint, 'model:', model, 'apiKey:', apiKey.slice(0, 8) + '...')
 
-    const allMems = db.prepare(`SELECT id, content, category, importance FROM memories WHERE is_archived = 0 ORDER BY importance DESC`).all() as any[]
+    const allMems = db.prepare(
+      `SELECT id, content, category, importance FROM memories WHERE is_archived = 0 ORDER BY importance DESC`
+    ).all() as any[]
     if (allMems.length < 3) return { success: false, error: '记忆条数不足，无需整理' }
 
-    const memText = allMems.map((m: any, i: number) =>
-      `[${i + 1}] (${m.category}, 重要性${m.importance}) ${m.content}`
-    ).join('\n')
+    // Pass real IDs to the AI so it can reference them accurately
+    const memText = allMems.map((m: any) =>
+      `<memory id="${m.id}" category="${m.category}" importance="${m.importance}">\n${m.content}\n</memory>`
+    ).join('\n\n')
 
-    const prompt = `你是一个记忆管理助手。以下是用户的所有记忆条目，请帮我：
-1. 合并明显重复或高度相似的条目（相似度>70%）
-2. 删除过时或矛盾的条目
-3. 提升少于5条最重要的、值得长期记忆的条目的表述清晰度
+    const prompt = `你是记忆管理助手，负责整理用户的记忆库，让记忆更精炼、不重复。
 
-请以 JSON 格式返回：
+以下是用户的所有记忆条目，每条有唯一 id。请：
+1. 将内容重复、高度相似或可互补的条目合并为一条表述更完整的新记忆
+2. 删除明显过时、价值低或已被其他条目覆盖的条目
+3. 对单独保留的重要条目，可优化措辞使其更清晰
+
+严格按以下 JSON 格式返回（只输出 JSON，不要任何说明）：
 {
-  "keep": [{"id": "原ID", "content": "（可选）更新后的内容", "importance": 新重要性}],
-  "delete": ["要删除的ID列表"]
+  "merge": [
+    {
+      "ids": ["被合并的id1", "被合并的id2"],
+      "content": "合并后综合两条信息的新内容",
+      "category": "分类（沿用原分类或更合适的）",
+      "importance": 1到5的重要性整数
+    }
+  ],
+  "update": [
+    {"id": "原id", "content": "优化后的内容（可选）", "importance": 新重要性整数（可选）}
+  ],
+  "delete": ["要删除的id"]
 }
-只输出 JSON，不要其他说明。
+
+规则：
+- merge.ids 中的原始记忆会被删除并替换为一条新的合并记忆
+- update 只修改单条记忆，不删除
+- delete 直接删除
+- 未出现在任何列表中的记忆保持不变
+- 如果没有需要操作的，对应数组返回空 []
 
 记忆列表：
 ${memText}`
 
     try {
-      const res = await net.fetch(`${apiUrl.replace(/\/$/, '')}/chat/completions`, {
+      const res = await net.fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
-          temperature: 0.3,
+          max_tokens: 8000,
+          temperature: 0.2,
           response_format: { type: 'json_object' }
         })
       })
-      if (!res.ok) return { success: false, error: `API 错误 ${res.status}` }
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        console.error('[consolidate] API error', res.status, errBody)
+        return { success: false, error: `API 错误 ${res.status}: ${errBody.slice(0, 120)}` }
+      }
       const data = await res.json() as any
-      const raw = data.choices?.[0]?.message?.content ?? '{}'
-      const result = JSON.parse(raw)
+      const raw = (data.choices?.[0]?.message?.content || '').trim()
+      console.log('[consolidate] raw response length:', raw.length, 'preview:', raw.slice(0, 100))
+      if (!raw) return { success: false, error: 'AI 返回了空响应，请重试' }
+      // Strip markdown code fences if model wrapped the JSON
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+      let result: any
+      try {
+        result = JSON.parse(jsonStr)
+      } catch (e: any) {
+        console.error('[consolidate] JSON parse error:', e.message, 'raw:', raw.slice(0, 200))
+        return { success: false, error: `AI 返回格式错误（${e.message}），请重试` }
+      }
 
+      const { randomUUID } = await import('crypto')
       const now2 = Date.now()
+      let merged = 0, updated = 0, deleted = 0
+
       const tx = db.transaction(() => {
-        for (const item of (result.keep ?? [])) {
+        // 1. Merge groups: insert new combined memory, delete originals
+        for (const group of (result.merge ?? [])) {
+          if (!Array.isArray(group.ids) || group.ids.length < 2 || !group.content) continue
+          db.prepare(
+            `INSERT INTO memories (id, content, category, importance, created_at, updated_at, is_archived)
+             VALUES (?, ?, ?, ?, ?, ?, 0)`
+          ).run(randomUUID(), group.content, group.category ?? 'general', group.importance ?? 3, now2, now2)
+          for (const id of group.ids) {
+            db.prepare('DELETE FROM memories WHERE id = ?').run(id)
+          }
+          merged += group.ids.length
+        }
+        // 2. Update individual entries
+        for (const item of (result.update ?? [])) {
+          if (!item.id) continue
           const parts: string[] = ['updated_at = ?']
           const vals: unknown[] = [now2]
           if (item.content)    { parts.push('content = ?');    vals.push(item.content) }
           if (item.importance) { parts.push('importance = ?'); vals.push(item.importance) }
           vals.push(item.id)
           db.prepare(`UPDATE memories SET ${parts.join(', ')} WHERE id = ?`).run(...vals)
+          updated++
         }
+        // 3. Delete
         for (const id of (result.delete ?? [])) {
           db.prepare('DELETE FROM memories WHERE id = ?').run(id)
+          deleted++
         }
       })
       tx()
-      return { success: true, kept: (result.keep ?? []).length, deleted: (result.delete ?? []).length }
+
+      const kept = allMems.length - merged - deleted
+      return { success: true, kept, deleted: merged + deleted, merged: Math.floor(merged / 2) }
     } catch (e: any) {
       return { success: false, error: e?.message ?? String(e) }
     }
@@ -803,6 +863,8 @@ ${memText}`
     const password = (store.get('webdavPass') as string | undefined)?.trim() ?? ''
     return url ? { url, username, password } : null
   }
+
+  ipcMain.handle('embedding:test', async () => testEmbedding())
 
   ipcMain.handle('webdav:test', async () => {
     const cfg = getWebDavConfig()
