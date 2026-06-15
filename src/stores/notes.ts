@@ -8,6 +8,10 @@ export interface Note {
   categoryId: string | null; color: string; wordCount: number
   createdAt: number; updatedAt: number
   sourceType?: string; sourceId?: string; sourceMsgId?: string
+  visibility?: 'private' | 'public'
+  memosName?: string | null
+  memosSyncedAt?: number | null
+  searchSnippet?: string | null   // FTS5 snippet with \x01/\x02 highlight markers
   tags: Tag[]
 }
 

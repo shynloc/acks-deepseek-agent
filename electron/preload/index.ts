@@ -79,6 +79,26 @@ const api = {
       markdown: (): Promise<{ success: boolean; count: number }> => ipcRenderer.invoke('db:import:markdown')
     }
   },
+  picbedIpc: {
+    test:   (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('picbed:test'),
+    upload: (params: { buffer: ArrayBuffer; filename: string; mimeType: string; folder?: string }): Promise<{ key: string }> =>
+      ipcRenderer.invoke('picbed:upload', params),
+  },
+  webdav: {
+    test:   (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('webdav:test'),
+    sync:   (): Promise<{ ok: boolean; pushed?: number; pulled?: number; syncedAt?: number; error?: string }> => ipcRenderer.invoke('webdav:sync'),
+    status: (): Promise<{ lastSyncAt: number }> => ipcRenderer.invoke('webdav:status'),
+  },
+  semantic: {
+    embed:    (noteId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('semantic:embed', noteId),
+    embedAll: (): Promise<{ success: boolean; done?: number; total?: number; error?: string }> =>
+      ipcRenderer.invoke('semantic:embed:all'),
+    search:   (query: string): Promise<{ success: boolean; results?: { id: string; score: number }[]; error?: string }> =>
+      ipcRenderer.invoke('semantic:search', query),
+    status:   (): Promise<{ total: number; embedded: number }> =>
+      ipcRenderer.invoke('semantic:status'),
+  },
   apiTest: (params: { url: string; apiKey: string; model: string }) =>
     ipcRenderer.invoke('api:test', params),
   tavilySearch: (params: { query: string; apiKey: string; maxResults?: number }) =>
@@ -120,6 +140,12 @@ const api = {
       return () => ipcRenderer.removeListener('agent:error', h)
     }
   },
+  memos: {
+    test:           (): Promise<{ ok: boolean; user?: string; error?: string }> => ipcRenderer.invoke('memos:test'),
+    sync:           (): Promise<{ ok: boolean; added: number; updated: number; deleted: number; syncedAt: number; errors: string[] }> => ipcRenderer.invoke('memos:sync'),
+    getStatus:      (): Promise<{ lastSyncAt: number }> => ipcRenderer.invoke('memos:getStatus'),
+    uploadResource: (params: { buffer: ArrayBuffer; filename: string; mimeType: string }): Promise<{ uid: string; filename: string; mimeType: string; url: string }> => ipcRenderer.invoke('memos:uploadResource', params),
+  },
   clipboard: {
     writeHtml: (html: string, text: string): Promise<void> =>
       ipcRenderer.invoke('clipboard:writeHtml', html, text)
@@ -136,7 +162,32 @@ const api = {
   },
   // Static env info available in preload (node context), exposed for renderer use
   env: {
-    homeDir: homedir()
+    homeDir: homedir(),
+    platform: process.platform as 'darwin' | 'win32' | 'linux'
+  },
+  tray: {
+    onNewChat: (fn: () => void): (() => void) => {
+      const h = () => fn()
+      ipcRenderer.on('tray:new-chat', h)
+      return () => ipcRenderer.removeListener('tray:new-chat', h)
+    },
+    onNewNote: (fn: () => void): (() => void) => {
+      const h = () => fn()
+      ipcRenderer.on('tray:new-note', h)
+      return () => ipcRenderer.removeListener('tray:new-note', h)
+    }
+  },
+  // Custom title bar controls (Windows / Linux only; macOS uses native traffic lights)
+  windowControls: {
+    minimize:       (): Promise<void>    => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: (): Promise<void>    => ipcRenderer.invoke('window:maximize'),
+    close:          (): Promise<void>    => ipcRenderer.invoke('window:close'),
+    isMaximized:    (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+    onMaximized: (fn: (isMax: boolean) => void): (() => void) => {
+      const h = (_: Electron.IpcRendererEvent, v: boolean) => fn(v)
+      ipcRenderer.on('window:maximized', h)
+      return () => ipcRenderer.removeListener('window:maximized', h)
+    }
   }
 }
 

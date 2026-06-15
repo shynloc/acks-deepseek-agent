@@ -2,10 +2,10 @@
 import { onMounted, computed, ref } from 'vue'
 import {
   MessageSquare, FileText, Type, Zap, Key, Sun, Moon,
-  CheckCircle, XCircle, Loader, Download, Upload,
+  CheckCircle, XCircle, Loader, Loader2, Download, Upload,
   FolderOpen, FileJson, BookOpen, AlertCircle, Globe, Bot, Sparkles, Pencil, Trash2, Plus,
   Puzzle, ToggleLeft, ToggleRight, User, Brain, Star, Search, X, ChevronDown,
-  Bookmark, Archive, ArchiveRestore, Dna
+  Bookmark, Archive, ArchiveRestore, Dna, Cloud, RefreshCw
 } from '@lucide/vue'
 import SkillDialog from '@/components/skills/SkillDialog.vue'
 import PluginDialog from '@/components/plugins/PluginDialog.vue'
@@ -21,6 +21,8 @@ const uiStore  = useUIStore()
 const settings = useSettingsStore()
 const webSearchExpanded = ref(false)
 const visionExpanded    = ref(false)
+const memosExpanded     = ref(false)
+const picbedExpanded    = ref(false)
 const skillsStore   = useSkillsStore()
 const pluginsStore  = usePluginsStore()
 const memoriesStore = useMemoriesStore()
@@ -438,7 +440,7 @@ async function importMarkdown() {
             <Puzzle class="w-4 h-4 text-blue-500" />
             <h2 class="text-base font-semibold">内置插件</h2>
           </div>
-          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive].filter(Boolean).length }}/2 已激活</span>
+          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive].filter(Boolean).length }}/4 已激活</span>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
           官方内置的能力扩展，可独立开关，不影响其他功能。
@@ -580,6 +582,224 @@ async function importMarkdown() {
                   <input v-model="settings.visionBaseUrl" type="text" class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none" @blur="settings.save()" />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- ── Memos 同步 ── -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="text-xl shrink-0">🔄</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">Memos 同步</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    :class="settings.memosActive
+                      ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'
+                      : settings.memosConfigured
+                        ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                  >{{ settings.memosActive ? '已激活' : settings.memosConfigured ? '已配置·已关闭' : '未配置' }}</span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-0.5">笔记与 Memos 实例双向同步，私有图片走 Memos 存储</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  @click="settings.memosPluginEnabled = !settings.memosPluginEnabled; settings.save()"
+                  :disabled="!settings.memosConfigured"
+                  class="transition-colors disabled:opacity-40"
+                  :class="settings.memosActive ? 'text-emerald-500 hover:text-emerald-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :title="settings.memosConfigured ? (settings.memosPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 Memos'"
+                >
+                  <ToggleRight v-if="settings.memosActive" class="w-6 h-6" />
+                  <ToggleLeft  v-else                       class="w-6 h-6" />
+                </button>
+                <button
+                  @click="memosExpanded = !memosExpanded"
+                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <ChevronDown class="w-4 h-4 transition-transform" :class="memosExpanded ? 'rotate-180' : ''" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Expanded config -->
+            <div v-if="memosExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Memos 服务器地址</label>
+                <input
+                  v-model="settings.memosUrl"
+                  type="url"
+                  placeholder="https://memos.example.com"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  @blur="settings.save()"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">API Token</label>
+                <input
+                  v-model="settings.memosToken"
+                  type="password"
+                  placeholder="在 Memos → 设置 → 开发者 中复制"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  @blur="settings.save()"
+                />
+              </div>
+              <!-- Test connection -->
+              <div class="flex items-center gap-2">
+                <button
+                  @click="settings.testMemosConnection()"
+                  :disabled="settings.isTestingMemos || !settings.memosUrl || !settings.memosToken"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                >
+                  <span v-if="settings.isTestingMemos" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                  {{ settings.isTestingMemos ? '连接中…' : '测试连接' }}
+                </button>
+                <span v-if="settings.memosTestResult === 'success'" class="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle class="w-3.5 h-3.5" /> {{ settings.memosTestUser }}
+                </span>
+                <span v-else-if="settings.memosTestResult === 'fail'" class="text-xs text-red-500 flex items-center gap-1">
+                  <XCircle class="w-3.5 h-3.5" /> {{ settings.memosTestError }}
+                </span>
+              </div>
+              <!-- Sync interval -->
+              <div class="flex items-center gap-3">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0">自动同步</label>
+                <select
+                  v-model="settings.memosSyncInterval"
+                  class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                  @change="settings.save()"
+                >
+                  <option :value="0">手动</option>
+                  <option :value="5">每 5 分钟</option>
+                  <option :value="15">每 15 分钟</option>
+                  <option :value="30">每 30 分钟</option>
+                  <option :value="60">每小时</option>
+                </select>
+                <button
+                  @click="settings.runMemosSync()"
+                  :disabled="settings.memosSyncing || !settings.memosConfigured"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors disabled:opacity-40 shrink-0"
+                >
+                  <span v-if="settings.memosSyncing" class="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  {{ settings.memosSyncing ? '同步中…' : '立即同步' }}
+                </button>
+              </div>
+              <!-- Last sync result -->
+              <div v-if="settings.memosSyncResult" class="text-xs rounded-lg px-3 py-2"
+                :class="settings.memosSyncResult.ok
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'"
+              >
+                <span v-if="settings.memosSyncResult.ok">
+                  同步完成 · 新增 {{ settings.memosSyncResult.added }} · 更新 {{ settings.memosSyncResult.updated }} · 归档 {{ settings.memosSyncResult.deleted }}
+                </span>
+                <span v-else>同步失败：{{ settings.memosSyncResult.errors[0] }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 图床 ── -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="text-xl shrink-0">🖼️</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">图床</span>
+                  <span class="text-xs text-gray-400">Cloudflare R2</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    :class="settings.picbedActive
+                      ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
+                      : settings.picbedConfigured
+                        ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                  >{{ settings.picbedActive ? '已激活' : settings.picbedConfigured ? '已配置·已关闭' : '未配置' }}</span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-0.5">公开笔记图片 CDN 存储，复制到微信公众号时图片正常显示</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  @click="settings.picbedPluginEnabled = !settings.picbedPluginEnabled; settings.save()"
+                  :disabled="!settings.picbedConfigured"
+                  class="transition-colors disabled:opacity-40"
+                  :class="settings.picbedActive ? 'text-orange-500 hover:text-orange-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :title="settings.picbedConfigured ? (settings.picbedPluginEnabled ? '点击关闭' : '点击开启') : '请先配置图床'"
+                >
+                  <ToggleRight v-if="settings.picbedActive" class="w-6 h-6" />
+                  <ToggleLeft  v-else                        class="w-6 h-6" />
+                </button>
+                <button
+                  @click="picbedExpanded = !picbedExpanded"
+                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <ChevronDown class="w-4 h-4 transition-transform" :class="picbedExpanded ? 'rotate-180' : ''" />
+                </button>
+              </div>
+            </div>
+            <div v-if="picbedExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">图床地址</label>
+                <input
+                  v-model="settings.picbedUrl"
+                  type="url"
+                  placeholder="https://img.example.com"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  @blur="settings.save()"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">管理密码</label>
+                <input
+                  v-model="settings.picbedToken"
+                  type="password"
+                  placeholder="图床 Worker 管理密码"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  @blur="settings.save()"
+                />
+                <p class="text-[11px] text-gray-400 mt-1">使用 ACKS 图床项目搭建，或自建 Cloudflare Worker + R2</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="settings.testPicbedConnection()"
+                  :disabled="settings.isTestingPicbed || !settings.picbedUrl || !settings.picbedToken"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                >
+                  <span v-if="settings.isTestingPicbed" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                  {{ settings.isTestingPicbed ? '测试中…' : '测试连接' }}
+                </button>
+                <span v-if="settings.picbedTestResult === 'success'" class="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle class="w-3.5 h-3.5" /> 连接成功
+                </span>
+                <span v-else-if="settings.picbedTestResult === 'fail'" class="text-xs text-red-500 flex items-center gap-1">
+                  <XCircle class="w-3.5 h-3.5" /> {{ settings.picbedTestError }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Agent 增强模式 ── -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="text-xl shrink-0">🔓</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">Agent 增强模式</span>
+                  <span v-if="settings.agentPowerMode" class="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full font-medium">已开启</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  开启后 Agent 可读取本地文件（read_file）、列出目录（list_dir），适合高级用户
+                </p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" class="sr-only peer" v-model="settings.agentPowerMode" @change="settings.save()" />
+                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+              </label>
+            </div>
+            <div v-if="settings.agentPowerMode" class="border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 bg-orange-50 dark:bg-orange-900/10">
+              <p class="text-[11px] text-orange-600 dark:text-orange-400">
+                ⚠️ 增强模式下 Agent 可访问本地文件系统，请勿在不受信任的对话中启用。系统敏感路径（.ssh、密钥、凭证等）已被屏蔽。
+              </p>
             </div>
           </div>
 
@@ -1119,6 +1339,104 @@ async function importMarkdown() {
                 </div>
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── WebDAV 同步 ── -->
+      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Cloud class="w-4 h-4 text-blue-500" />
+            <h2 class="text-base font-semibold">WebDAV 同步</h2>
+            <span v-if="settings.webdavConfigured" class="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full font-medium">已配置</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span v-if="settings.webdavLastSync" class="text-xs text-gray-400">
+              上次同步 {{ new Date(settings.webdavLastSync).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) }}
+            </span>
+            <button
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              :disabled="settings.webdavSyncing || !settings.webdavConfigured"
+              @click="settings.runWebDavSync()"
+            >
+              <Loader2 v-if="settings.webdavSyncing" class="w-3 h-3 animate-spin" />
+              <RefreshCw v-else class="w-3 h-3" />
+              {{ settings.webdavSyncing ? '同步中…' : '立即同步' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">WebDAV URL</label>
+              <input
+                v-model="settings.webdavUrl"
+                placeholder="https://webdav.example.com"
+                class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+                @blur="settings.save()"
+              />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">用户名</label>
+                <input
+                  v-model="settings.webdavUser"
+                  placeholder="username"
+                  class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                  @blur="settings.save()"
+                />
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">密码</label>
+                <input
+                  v-model="settings.webdavPass"
+                  type="password"
+                  placeholder="••••••••"
+                  class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                  @blur="settings.save()"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button
+              class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+              :disabled="settings.isTestingWebdav || !settings.webdavUrl"
+              @click="settings.testWebDavConnection()"
+            >
+              <Loader2 v-if="settings.isTestingWebdav" class="w-3 h-3 inline animate-spin mr-1" />
+              测试连接
+            </button>
+            <span v-if="settings.webdavTestResult === 'success'" class="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <CheckCircle class="w-3.5 h-3.5" /> 连接成功
+            </span>
+            <span v-else-if="settings.webdavTestResult === 'fail'" class="text-xs text-red-500 flex items-center gap-1">
+              <XCircle class="w-3.5 h-3.5" /> {{ settings.webdavTestError }}
+            </span>
+          </div>
+
+          <!-- Sync result -->
+          <div v-if="settings.webdavSyncResult" class="text-xs rounded-lg px-3 py-2"
+               :class="settings.webdavSyncResult.ok ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-600'">
+            <span v-if="settings.webdavSyncResult.ok">
+              同步完成 · 推送 {{ settings.webdavSyncResult.pushed }} 篇，拉取 {{ settings.webdavSyncResult.pulled }} 篇
+            </span>
+            <span v-else>同步失败：{{ settings.webdavSyncResult.error }}</span>
+          </div>
+
+          <!-- Embedding model -->
+          <div class="pt-1 border-t border-gray-200 dark:border-gray-700">
+            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">AI 语义搜索 Embedding 模型</label>
+            <input
+              v-model="settings.embeddingModel"
+              placeholder="text-embedding-3-small"
+              class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+              @blur="settings.save()"
+            />
+            <p class="text-[11px] text-gray-400 mt-1">使用 OpenAI 兼容的 Embedding API，需 API Key 支持此模型</p>
           </div>
         </div>
       </section>

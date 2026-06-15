@@ -47,14 +47,36 @@
           </div>
 
           <div
-            v-for="cat in categories"
+            v-for="(cat, idx) in categories"
             :key="cat.id"
-            class="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors"
-            :class="activeCategory === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
-            @click="setCategory(cat.id)"
+            draggable="true"
+            class="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors select-none"
+            :class="[
+              activeCategory === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800',
+              dragOverIdx === idx ? 'border-t-2 border-blue-400' : ''
+            ]"
+            @click="renamingCatId !== cat.id && setCategory(cat.id)"
+            @dblclick.stop="startRenameCategory(cat)"
+            @dragstart="onCatDragStart(idx)"
+            @dragover.prevent="dragOverIdx = idx"
+            @dragleave="dragOverIdx = null"
+            @drop.prevent="onCatDrop(idx)"
+            @dragend="dragOverIdx = null"
           >
+            <GripVertical class="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-30 cursor-grab" />
             <FolderOpen class="w-3.5 h-3.5 shrink-0" />
-            <span class="truncate flex-1">{{ cat.name }}</span>
+            <!-- Rename inline input -->
+            <input
+              v-if="renamingCatId === cat.id"
+              ref="renameCatInputRef"
+              v-model="renamingCatName"
+              class="flex-1 text-xs bg-transparent outline-none border-b border-blue-400"
+              @keydown.enter="commitRenameCategory(cat.id)"
+              @keydown.escape="renamingCatId = null"
+              @blur="commitRenameCategory(cat.id)"
+              @click.stop
+            />
+            <span v-else class="truncate flex-1">{{ cat.name }}</span>
             <button
               class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
               @click.stop="deleteCategory(cat.id)"
@@ -96,55 +118,91 @@
     </aside>
 
     <!-- ══ Main content ══ -->
-    <main class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 flex overflow-hidden">
+      <!-- Note list pane (narrows when inline editor is open) -->
+      <div
+        class="flex flex-col overflow-hidden transition-all duration-200"
+        :class="editorOpen && isWideScreen ? 'w-80 shrink-0 border-r border-gray-200 dark:border-gray-700' : 'flex-1'"
+      >
       <!-- Toolbar row -->
       <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
         <!-- Search -->
-        <div class="flex items-center gap-2 flex-1 max-w-sm bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-1.5">
-          <Search class="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <div
+          class="flex items-center gap-2 flex-1 max-w-sm rounded-xl px-3 py-1.5 transition-colors"
+          :class="semanticMode
+            ? 'bg-purple-50 dark:bg-purple-900/20 ring-1 ring-purple-300 dark:ring-purple-700'
+            : 'bg-gray-100 dark:bg-gray-800'"
+        >
+          <Loader2 v-if="semanticSearching" class="w-3.5 h-3.5 text-purple-500 shrink-0 animate-spin" />
+          <Search v-else class="w-3.5 h-3.5 shrink-0" :class="semanticMode ? 'text-purple-500' : 'text-gray-400'" />
           <input
             v-model="searchQuery"
-            placeholder="搜索笔记…"
-            class="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-300 placeholder-gray-400"
+            :placeholder="semanticMode ? 'AI 语义搜索… 按 Enter 开始' : '搜索笔记…'"
+            class="flex-1 text-sm bg-transparent outline-none placeholder-gray-400"
+            :class="semanticMode ? 'text-purple-700 dark:text-purple-200' : 'text-gray-700 dark:text-gray-300'"
             @input="onSearch"
+            @keydown.enter="semanticMode && semanticSearch()"
           />
-          <button v-if="searchQuery" class="text-gray-400 hover:text-gray-600" @click="searchQuery = ''; onSearch()">
+          <button
+            v-if="searchQuery"
+            class="text-gray-400 hover:text-gray-600"
+            @click="searchQuery = ''; semanticResults.value = []; onSearch()"
+          >
             <X class="w-3 h-3" />
+          </button>
+          <button
+            class="p-0.5 rounded transition-colors"
+            :class="semanticMode
+              ? 'text-purple-500 hover:text-purple-700'
+              : 'text-gray-400 hover:text-purple-500'"
+            title="AI 语义搜索"
+            @click="toggleSemanticMode"
+          >
+            <Sparkles class="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div class="ml-auto flex items-center gap-2">
-          <!-- Sort -->
-          <select
-            v-model="sortBy"
-            class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 outline-none"
-          >
-            <option value="updated">最近修改</option>
-            <option value="created">创建时间</option>
-            <option value="title">标题</option>
-          </select>
+          <!-- Sort & view mode: hidden when note list is narrowed in split view -->
+          <template v-if="!(editorOpen && isWideScreen)">
+            <select
+              v-model="sortBy"
+              class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 outline-none"
+            >
+              <option value="updated">最近修改</option>
+              <option value="created">创建时间</option>
+              <option value="title">标题</option>
+            </select>
 
-          <!-- View mode -->
-          <div class="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <button
-              class="p-1.5 transition-colors"
-              :class="viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
-              @click="viewMode = 'grid'"
-              title="网格视图"
-            ><LayoutGrid class="w-3.5 h-3.5" /></button>
-            <button
-              class="p-1.5 transition-colors"
-              :class="viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
-              @click="viewMode = 'list'"
-              title="列表视图"
-            ><List class="w-3.5 h-3.5" /></button>
-          </div>
+            <div class="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                class="p-1.5 transition-colors"
+                :class="viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
+                @click="viewMode = 'grid'"
+                title="网格视图"
+              ><LayoutGrid class="w-3.5 h-3.5" /></button>
+              <button
+                class="p-1.5 transition-colors"
+                :class="viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
+                @click="viewMode = 'list'"
+                title="列表视图"
+              ><List class="w-3.5 h-3.5" /></button>
+            </div>
+          </template>
 
           <button
             class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-xl transition-colors"
             @click="openEditor(null)"
           >
-            <Plus class="w-3.5 h-3.5" />新建笔记
+            <Plus class="w-3.5 h-3.5" /><span v-if="!(editorOpen && isWideScreen)">新建笔记</span>
+          </button>
+          <button
+            v-if="!(editorOpen && isWideScreen)"
+            class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-xl transition-colors"
+            title="从模板新建"
+            @click="showTemplatePicker = true"
+          >
+            <LayoutTemplate class="w-3.5 h-3.5" />模板
           </button>
         </div>
       </div>
@@ -155,6 +213,44 @@
         <div v-if="isLoading" class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <SkeletonCard v-for="i in 6" :key="i" />
         </div>
+
+        <!-- ── Semantic results ── -->
+        <template v-else-if="semanticMode">
+          <div v-if="!semanticResults.length && !semanticSearching" class="flex flex-col items-center justify-center h-64 text-gray-400">
+            <Sparkles class="w-10 h-10 mb-3 opacity-30" />
+            <p class="text-sm">输入问题或关键词，按 Enter 开始 AI 语义搜索</p>
+            <p class="text-xs mt-1 opacity-60">跨越关键词障碍，理解文意找到笔记</p>
+          </div>
+          <template v-else-if="semanticResults.length">
+            <div class="flex items-center gap-2 mb-3">
+              <Sparkles class="w-3.5 h-3.5 text-purple-500" />
+              <span class="text-xs text-gray-400">找到 {{ semanticResults.length }} 篇相关笔记</span>
+            </div>
+            <div class="space-y-1.5">
+              <div
+                v-for="note in semanticResults"
+                :key="note.id"
+                class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all"
+                @dblclick="openEditor(note)"
+                @click="selectedNote = note"
+              >
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-0.5">
+                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 shrink-0 font-medium">
+                      {{ Math.round(note.score * 100) }}%
+                    </span>
+                  </div>
+                  <p class="text-xs text-gray-400 truncate">{{ plainPreview(note.content) }}</p>
+                </div>
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-500" @click.stop="openEditor(note)"><Pencil class="w-3 h-3" /></button>
+                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500" @click.stop="confirmDelete(note)"><Trash2 class="w-3 h-3" /></button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </template>
 
         <template v-else>
           <!-- Stats bar (independent, always shows when notes exist) -->
@@ -171,7 +267,7 @@
 
           <!-- Grid -->
           <div
-            v-else-if="viewMode === 'grid'"
+            v-else-if="effectiveViewMode === 'grid'"
           class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
         >
           <NoteCard
@@ -195,8 +291,9 @@
               v-for="note in visibleNotes"
               :key="note.id"
               class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all"
-              @click="selectedNote = note"
-              @dblclick="openEditor(note)"
+              :class="{ 'border-blue-400 dark:border-blue-500': editorOpen && isWideScreen && editingNote?.id === note.id }"
+              @click="editorOpen && isWideScreen ? openEditor(note) : (selectedNote = note)"
+              @dblclick="editorOpen && isWideScreen ? undefined : openEditor(note)"
             >
               <div v-if="note.color && note.color !== 'none'" class="w-1.5 h-8 rounded-full shrink-0" :style="{ background: noteColorHex(note.color) }" />
               <div class="flex-1 min-w-0">
@@ -204,7 +301,10 @@
                   <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
                   <span v-for="tag in note.tags.slice(0, 2)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" :style="{ background: tag.color + '22', color: tag.color }">{{ tag.name }}</span>
                 </div>
-                <p class="text-xs text-gray-400 truncate">{{ plainPreview(note.content) }}</p>
+                <!-- Show FTS5 snippet with highlights when searching, plain preview otherwise -->
+                <p v-if="note.searchSnippet" class="text-xs text-gray-400 truncate"
+                   v-html="highlightSnippet(note.searchSnippet)" />
+                <p v-else class="text-xs text-gray-400 truncate">{{ plainPreview(note.content) }}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0 text-xs text-gray-400">
                 <span>{{ formatDate(note.updatedAt) }}</span>
@@ -219,12 +319,28 @@
           <div v-if="hasMore" ref="sentinelRef" class="h-8" />
         </template>
       </div>
+      </div><!-- end note list pane -->
+
+      <!-- ══ Inline editor pane (wide screens) ══ -->
+      <div v-if="editorOpen && isWideScreen" class="flex-1 overflow-hidden">
+        <NoteEditor
+          inline
+          :note="editingNote"
+          :categories="categories"
+          :available-tags="tags"
+          @save="onEditorSave"
+          @auto-save="onEditorAutoSave"
+          @close="editorOpen = false"
+          @create-tag="onCreateTag"
+          @open-note="openNoteById"
+        />
+      </div>
     </main>
 
-    <!-- ══ Note Editor Modal ══ -->
+    <!-- ══ Note Editor Modal (narrow screens only) ══ -->
     <Transition name="modal">
       <NoteEditor
-        v-if="editorOpen"
+        v-if="editorOpen && !isWideScreen"
         :note="editingNote"
         :categories="categories"
         :available-tags="tags"
@@ -232,6 +348,7 @@
         @auto-save="onEditorAutoSave"
         @close="editorOpen = false"
         @create-tag="onCreateTag"
+        @open-note="openNoteById"
       />
     </Transition>
 
@@ -248,6 +365,13 @@
       </div>
     </div>
     </Transition>
+
+    <!-- Template picker -->
+    <TemplatePickerModal
+      v-if="showTemplatePicker"
+      @pick="onTemplatePick"
+      @close="showTemplatePicker = false"
+    />
   </div>
 </template>
 
@@ -255,18 +379,20 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import {
   Plus, X, Search, BookOpen, FolderOpen, Bookmark,
-  LayoutGrid, List, Pencil, Trash2
+  LayoutGrid, List, Pencil, Trash2, GripVertical, LayoutTemplate, Sparkles, Loader2
 } from '@lucide/vue'
 import { useNotesStore, type Note, type Tag } from '@/stores/notes'
 import { useChatStore } from '@/stores/chat'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import NoteCard from '@/components/notes/NoteCard.vue'
 import NoteEditor from '@/components/notes/NoteEditor.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
+import TemplatePickerModal from '@/components/notes/TemplatePickerModal.vue'
 
 const store = useNotesStore()
 const chatStore = useChatStore()
 const router = useRouter()
+const route = useRoute()
 
 const notes = computed(() => store.notes)
 const categories = computed(() => store.categories)
@@ -274,6 +400,10 @@ const tags = computed(() => store.tags)
 
 // ── UI state ──────────────────────────────────────────────────────────────────
 const viewMode = ref<'grid' | 'list'>('grid')
+// In split-pane mode the note list is only ~320px wide — force list view regardless of user preference
+const effectiveViewMode = computed(() =>
+  (editorOpen.value && isWideScreen.value) ? 'list' : viewMode.value
+)
 const activeCategory = ref<string | null>(null)
 const activeTag = ref<string | null>(null)
 const searchQuery = ref('')
@@ -281,6 +411,11 @@ const sortBy = ref<'updated' | 'created' | 'title'>('updated')
 const selectedNote = ref<Note | null>(null)
 const isLoading = ref(true)
 const shortcuts = ref<{ noteId: string; title: string }[]>([])
+const showTemplatePicker = ref(false)
+const isWideScreen = ref(window.innerWidth >= 1024)
+const semanticMode = ref(false)
+const semanticSearching = ref(false)
+const semanticResults = ref<(Note & { score: number })[]>([])
 
 // ── Editor ────────────────────────────────────────────────────────────────────
 const editorOpen = ref(false)
@@ -291,14 +426,35 @@ function openEditor(note: Note | null) {
   editorOpen.value = true
 }
 
+function onTemplatePick(content: string, title: string) {
+  showTemplatePicker.value = false
+  editingNote.value = {
+    id: '',
+    title,
+    content,
+    categoryId: activeCategory.value,
+    color: 'none',
+    wordCount: 0,
+    visibility: 'private',
+    tags: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+  editorOpen.value = true
+}
+
 async function onEditorSave(patch: Partial<Note> & { id?: string }) {
+  let noteId = patch.id
   if (patch.id) {
     await store.updateNote(patch.id, patch)
   } else {
-    await store.createNote(patch)
+    const created = await store.createNote(patch)
+    noteId = created.id
   }
   editorOpen.value = false
   await store.loadAll({ categoryId: activeCategory.value ?? undefined, search: searchQuery.value || undefined })
+  // Async embed the saved note (fire and forget)
+  if (noteId) window.api.semantic.embed(noteId).catch(() => {})
 }
 
 async function onEditorAutoSave(patch: Partial<Note> & { id: string }) {
@@ -316,8 +472,10 @@ const deletingNote = ref<Note | null>(null)
 function confirmDelete(note: Note) { deletingNote.value = note }
 async function doDelete() {
   if (!deletingNote.value) return
-  await store.deleteNote(deletingNote.value.id)
-  if (selectedNote.value?.id === deletingNote.value.id) selectedNote.value = null
+  const id = deletingNote.value.id
+  await store.deleteNote(id)
+  if (selectedNote.value?.id === id) selectedNote.value = null
+  semanticResults.value = semanticResults.value.filter(n => n.id !== id)
   deletingNote.value = null
 }
 
@@ -344,6 +502,50 @@ async function deleteCategory(id: string) {
   if (activeCategory.value === id) activeCategory.value = null
 }
 
+// ── Category rename (double-click) ────────────────────────────────────────────
+const renamingCatId   = ref<string | null>(null)
+const renamingCatName = ref('')
+const renameCatInputRef = ref<HTMLInputElement | null>(null)
+
+function startRenameCategory(cat: { id: string; name: string }) {
+  renamingCatId.value   = cat.id
+  renamingCatName.value = cat.name
+  nextTick(() => {
+    const el = renameCatInputRef.value
+    if (el) { el.focus(); el.select() }
+  })
+}
+
+async function commitRenameCategory(id: string) {
+  if (renamingCatId.value !== id) return
+  const name = renamingCatName.value.trim()
+  if (name) await window.api.db.categories.update(id, { name })
+  await store.loadCategories()
+  renamingCatId.value = null
+}
+
+// ── Category drag-to-reorder ──────────────────────────────────────────────────
+const dragSrcIdx  = ref<number | null>(null)
+const dragOverIdx = ref<number | null>(null)
+
+function onCatDragStart(idx: number) {
+  dragSrcIdx.value = idx
+}
+
+async function onCatDrop(targetIdx: number) {
+  if (dragSrcIdx.value === null || dragSrcIdx.value === targetIdx) return
+  const cats = [...categories.value]
+  const [moved] = cats.splice(dragSrcIdx.value, 1)
+  cats.splice(targetIdx, 0, moved)
+  // Persist new order_index for each category
+  await Promise.all(
+    cats.map((c, i) => window.api.db.categories.update(c.id, { order_index: i }))
+  )
+  await store.loadCategories()
+  dragSrcIdx.value  = null
+  dragOverIdx.value = null
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 function setCategory(id: string | null) {
   activeCategory.value = id
@@ -358,7 +560,12 @@ function setTag(id: string) {
 }
 
 async function openNoteById(noteId: string) {
-  const note = notes.value.find(n => n.id === noteId)
+  let note = notes.value.find(n => n.id === noteId)
+  if (!note) {
+    // Note might not be in the current filtered list — load from DB
+    const rows = await window.api.db.notes.list({}) as Note[]
+    note = rows.find(n => n.id === noteId)
+  }
   if (note) openEditor(note)
 }
 
@@ -416,13 +623,42 @@ watch(sentinelRef, (el) => {
   }, { rootMargin: '100px' })
   observer.observe(el)
 })
-onBeforeUnmount(() => observer?.disconnect())
-
 // ── Search (debounced) ────────────────────────────────────────────────────────
 let searchTimer: ReturnType<typeof setTimeout>
 function onSearch() {
+  if (semanticMode.value) return // semantic mode uses explicit trigger
   clearTimeout(searchTimer)
   searchTimer = setTimeout(loadNotes, 300)
+}
+
+async function semanticSearch() {
+  const q = searchQuery.value.trim()
+  if (!q) return
+  semanticSearching.value = true
+  try {
+    const res = await window.api.semantic.search(q)
+    if (!res.success || !res.results?.length) {
+      semanticResults.value = []
+      return
+    }
+    // Load all notes then match by id and attach score
+    const allNotes = await window.api.db.notes.list({}) as Note[]
+    const scoreMap = new Map(res.results.map(r => [r.id, r.score]))
+    semanticResults.value = allNotes
+      .filter((n: Note) => scoreMap.has(n.id))
+      .map((n: Note) => ({ ...n, score: scoreMap.get(n.id)! }))
+      .sort((a, b) => b.score - a.score)
+  } finally {
+    semanticSearching.value = false
+  }
+}
+
+function toggleSemanticMode() {
+  semanticMode.value = !semanticMode.value
+  if (!semanticMode.value) {
+    semanticResults.value = []
+    loadNotes()
+  }
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
@@ -433,7 +669,10 @@ async function loadNotes() {
   })
 }
 
+function onResize() { isWideScreen.value = window.innerWidth >= 1024 }
+
 onMounted(async () => {
+  window.addEventListener('resize', onResize)
   isLoading.value = true
   await Promise.all([
     store.loadAll(),
@@ -442,7 +681,21 @@ onMounted(async () => {
     loadShortcuts()
   ])
   isLoading.value = false
+
+  // If navigated here with ?openNote=<id>, open that note in editor
+  const openNoteId = route.query.openNote as string | undefined
+  if (openNoteId) {
+    const note = notes.value.find(n => n.id === openNoteId)
+    if (note) openEditor(note)
+    router.replace({ path: '/notebook' })
+  }
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize)
+  observer?.disconnect()
+})
+
 
 // ── Chat with note ────────────────────────────────────────────────────────────
 function chatWithNote(note: Note) {
@@ -451,6 +704,14 @@ function chatWithNote(note: Note) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function highlightSnippet(snippet: string): string {
+  const MARK_OPEN = '\x01'
+  const MARK_CLOSE = '\x02'
+  return snippet
+    .replace(new RegExp(MARK_OPEN, 'g'), '<mark class="bg-yellow-200 dark:bg-yellow-700/60 text-gray-900 dark:text-gray-100 rounded px-0.5">')
+    .replace(new RegExp(MARK_CLOSE, 'g'), '</mark>')
+}
+
 function plainPreview(content: string): string {
   return content
     .replace(/^#{1,6}\s+/gm, '')

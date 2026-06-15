@@ -23,6 +23,7 @@ export interface ParseResult {
   warning?: string   // non-fatal notice to show the user
   isOcr?: boolean    // true when text came from OCR / vision
   visionUsed?: boolean  // true when MiMo vision API was used
+  needsOcr?: boolean   // true when PDF has no text layer — caller should run OCR
 }
 
 const MAX_CHARS = 12_000   // truncate injected context beyond this
@@ -124,13 +125,13 @@ async function parsePdf(file: File): Promise<ParseResult> {
   const warning = pdf.numPages > 50 ? `PDF 共 ${pdf.numPages} 页，已提取前 50 页` : undefined
 
   if (!text.trim()) {
-    // No text layer — likely a scanned image PDF
+    // No text layer — signal caller to run OCR via OcrProgressDialog
     return {
-      text: '',
-      type: 'PDF（扫描件）',
-      pages: pdf.numPages,
-      warning: '该 PDF 无文字层（可能是扫描件），无法提取文本。建议手动描述内容。',
-      isOcr: false
+      text:     '',
+      type:     'PDF（扫描件）',
+      pages:    pdf.numPages,
+      needsOcr: true,
+      isOcr:    false,
     }
   }
 

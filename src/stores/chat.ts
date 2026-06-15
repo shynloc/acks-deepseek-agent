@@ -431,22 +431,27 @@ ${seq}
     result: string
   ): Omit<Artifact, 'id' | 'createdAt'>[] {
     const homeDir = window.api.env.homeDir
-    // Match patterns: 文件：xxx.ext  文件名：xxx.ext  路径：~/Desktop/xxx.ext  路径：/Users/.../xxx.ext
+    const isWindows = window.api.env.platform === 'win32'
+    const sep = isWindows ? '\\' : '/'
+
+    // Match patterns: 文件：xxx.ext  文件名：xxx.ext  路径：~/...  路径：/...  路径：C:\...
     const re = /(?:文件[名路径]?|路径)[：:]\s*([^\n\r]+?\.(docx|xlsx|pptx|html|md|txt|csv|json|pdf))/gi
     const artifacts: Omit<Artifact, 'id' | 'createdAt'>[] = []
     const seen = new Set<string>()
 
     for (const m of result.matchAll(re)) {
       const rawPath = m[1].trim()
-      // Expand ~ to real home dir (tools use app.getPath('home') which == homedir())
-      const fullPath = rawPath.startsWith('~/')
-        ? homeDir + rawPath.slice(1)
-        : rawPath.startsWith('/')
+      // Expand ~ prefix regardless of slash type (tools may produce ~/ or ~\ depending on OS)
+      // Absolute paths: Unix starts with /, Windows starts with letter + colon (C:\)
+      const fullPath = rawPath.startsWith('~')
+        ? homeDir + rawPath.slice(1).replace(/[/\\]/g, sep)
+        : /^([A-Za-z]:[/\\]|\/)/.test(rawPath)
           ? rawPath
-          : `${homeDir}/Desktop/${rawPath}`
+          : `${homeDir}${sep}Desktop${sep}${rawPath}`
 
-      const name = fullPath.split('/').pop()!
-      if (seen.has(name)) continue
+      // Split on both separators to extract filename on any OS
+      const name = fullPath.split(/[/\\]/).pop()!
+      if (!name || seen.has(name)) continue
       seen.add(name)
 
       const ext  = (name.split('.').pop() ?? '').toLowerCase()

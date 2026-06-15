@@ -15,6 +15,19 @@ export function initDatabase(): Database.Database {
   // Incremental migrations (idempotent ALTER TABLE — fails silently if column exists)
   try { db.exec('ALTER TABLE conversations ADD COLUMN agent_id TEXT') } catch { /* exists */ }
 
+  // Sprint E/G: notes table column additions
+  const notesMigrations: [string, string][] = [
+    ['memos_name',       'TEXT'],
+    ['memos_synced_at',  'INTEGER'],
+    ['visibility',       "TEXT DEFAULT 'private'"],
+    ['embedding',        'TEXT'],
+    ['embedding_model',  'TEXT'],
+  ]
+  for (const [col, def] of notesMigrations) {
+    try { db.exec(`ALTER TABLE notes ADD COLUMN ${col} ${def}`) } catch { /* already exists */ }
+  }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_notes_memos ON notes(memos_name)') } catch { /* ok */ }
+
   // Memories table (Sprint E) — base schema without new columns for backward compat
   db.exec(`
     CREATE TABLE IF NOT EXISTS memories (

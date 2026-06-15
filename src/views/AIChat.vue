@@ -3,7 +3,7 @@ import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import {
   MessageSquare, BookOpen, ExternalLink, Trash2, X, FileText, FileSpreadsheet,
   Presentation, FolderOpen, Bot, ChevronRight, ChevronLeft, PanelRight,
-  Search, Download, ChevronUp, ChevronDown
+  Search, Download, ChevronUp, ChevronDown, Bookmark
 } from '@lucide/vue'
 import { getAgent } from '@/data/agents'
 import ChatHistory from '@/components/chat/ChatHistory.vue'
@@ -25,6 +25,37 @@ const settings   = useSettingsStore()
 const router     = useRouter()
 const messagesEl = ref<HTMLElement | null>(null)
 
+// ── File drag-and-drop to analyze ─────────────────────────────────────────
+const fileDragging = ref(false)
+
+const READABLE_EXTS = new Set([
+  'txt','md','markdown','json','csv','xml','yaml','yml','toml','ini','log',
+  'py','js','ts','jsx','tsx','sh','bash','zsh','bat','ps1',
+  'html','htm','css','scss','sass','sql','r','go','rs','java','cpp','c','h'
+])
+
+async function handleFileDrop(e: DragEvent) {
+  fileDragging.value = false
+  const files = Array.from(e.dataTransfer?.files ?? [])
+  if (!files.length) return
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    if (!READABLE_EXTS.has(ext)) {
+      pendingInput.value += `[不支持的文件类型：${file.name}，请拖入文本格式文件]\n`
+      continue
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      pendingInput.value += `[文件过大：${file.name}（${(file.size/1024/1024).toFixed(1)} MB），最大 5 MB]\n`
+      continue
+    }
+    const text = await file.text()
+    const truncated = text.length > 15000
+    const preview = text.slice(0, 15000) + (truncated ? '\n\n[文件已截断…]' : '')
+    pendingInput.value += `【文件：${file.name}】\n\`\`\`\n${preview}\n\`\`\`\n\n`
+  }
+}
+
 // ── Save note dialog ───────────────────────────────────────────────────────
 const savingMessage = ref<Message | null>(null)
 
@@ -44,9 +75,23 @@ async function saveExtractedSkill(data: any) {
 // ── Session notes ───────────────────────────────────────────────────────────
 const sessionNotes = ref<Note[]>([])
 
+// ── Shortcuts (pinned notes from Notebook) ──────────────────────────────────
+const shortcuts = ref<{ noteId: string; title: string }[]>([])
+
+async function loadShortcuts() {
+  const raw = (await window.api.db.shortcuts.list()) as any[]
+  shortcuts.value = raw.map(s => ({ noteId: s.noteId, title: s.title }))
+}
+
+function openShortcutNote(noteId: string) {
+  // Navigate to Notebook and open the note
+  router.push({ path: '/notebook', query: { openNote: noteId } })
+}
+
 onMounted(async () => {
   await settings.load()
   await chat.loadConversations()
+  await loadShortcuts()
 
   if (chat.pendingNoteContext) {
     const { title, content } = chat.pendingNoteContext
@@ -140,7 +185,10 @@ watch(() => chat.currentConversationId, () => {
 
 function onSaveToNotebook(message: Message) { savingMessage.value = message }
 function onNoteSaved(note: Note) { sessionNotes.value.unshift(note); savingMessage.value = null }
-function openNoteInNotebook() { router.push('/notebook') }
+function openNoteInNotebook(noteId?: string) {
+  if (noteId) router.push({ path: '/notebook', query: { openNote: noteId } })
+  else router.push('/notebook')
+}
 function removeSessionNote(idx: number) { sessionNotes.value.splice(idx, 1) }
 
 // ── Artifacts helpers ────────────────────────────────────────────────────────
@@ -327,8 +375,22 @@ onUnmounted(() => {
       <div
         v-if="chat.currentConversationId"
         ref="messagesEl"
-        class="flex-1 overflow-y-auto py-2"
+        class="flex-1 overflow-y-auto py-2 relative"
+        @dragover.prevent="fileDragging = true"
+        @dragleave="fileDragging = false"
+        @drop.prevent="handleFileDrop"
       >
+        <!-- File drag overlay -->
+        <div
+          v-if="fileDragging"
+          class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3
+                 bg-blue-50/90 dark:bg-blue-900/40 border-2 border-dashed border-blue-400
+                 dark:border-blue-500 rounded-lg pointer-events-none"
+        >
+          <span class="text-4xl">📄</span>
+          <p class="text-sm font-medium text-blue-600 dark:text-blue-300">松开文件让 AI 帮你分析</p>
+          <p class="text-xs text-blue-400">支持 txt / md / json / csv / py / js 等文本文件</p>
+        </div>
         <!-- Empty conversation with agent indicator -->
         <div v-if="chat.messages.length === 0" class="flex flex-col items-center justify-center h-full gap-2 text-zinc-400 dark:text-zinc-600">
           <template v-if="chat.currentConversation?.agentId && getAgent(chat.currentConversation.agentId)">
@@ -492,7 +554,7 @@ onUnmounted(() => {
             <div class="flex items-start justify-between gap-1 mb-1">
               <span class="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">{{ note.title }}</span>
               <div class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-0.5 rounded text-zinc-400 hover:text-blue-500 transition-colors" title="在笔记本中查看" @click="openNoteInNotebook">
+                <button class="p-0.5 rounded text-zinc-400 hover:text-blue-500 transition-colors" title="在笔记本中查看" @click="openNoteInNotebook(note.id)">
                   <ExternalLink class="w-3 h-3" />
                 </button>
                 <button class="p-0.5 rounded text-zinc-400 hover:text-red-500 transition-colors" title="从列表移除" @click="removeSessionNote(idx)">
@@ -507,11 +569,29 @@ onUnmounted(() => {
         </div>
 
         <!-- Jump to notebook -->
-        <div v-if="sessionNotes.length" class="p-2 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
+        <div v-if="sessionNotes.length" class="p-2 border-t border-zinc-200 dark:border-zinc-800">
           <button
             class="w-full text-xs text-center py-1.5 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors font-medium"
             @click="openNoteInNotebook"
           >前往笔记本查看全部</button>
+        </div>
+
+        <!-- Shortcuts (pinned notes) -->
+        <div v-if="shortcuts.length" class="border-t border-zinc-200 dark:border-zinc-800 mt-auto">
+          <div class="px-3 pt-2 pb-1 flex items-center gap-1">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">快捷笔记</span>
+          </div>
+          <div class="px-2 pb-2 space-y-0.5">
+            <button
+              v-for="s in shortcuts"
+              :key="s.noteId"
+              class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+              @click="openShortcutNote(s.noteId)"
+            >
+              <Bookmark class="w-3 h-3 shrink-0 text-amber-400" />
+              <span class="truncate">{{ s.title }}</span>
+            </button>
+          </div>
         </div>
 
       </div>

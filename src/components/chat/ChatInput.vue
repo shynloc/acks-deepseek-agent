@@ -11,6 +11,7 @@ import NotePickerPanel from './NotePickerPanel.vue'
 import AgentSelector from './AgentSelector.vue'
 import { getAgent } from '@/data/agents'
 import { parseFile, type ParseResult } from '@/services/fileParser'
+import OcrProgressDialog from '@/components/OcrProgressDialog.vue'
 import type { Note } from '@/stores/notes'
 
 const props = defineProps<{ initialText?: string }>()
@@ -137,12 +138,19 @@ watch(() => props.initialText, (val) => {
 // ── Attachment state ──────────────────────────────────────────────────────────
 interface Attachment {
   id: string; name: string; type: string
-  icon: 'file' | 'image'; status: 'parsing' | 'ready' | 'error'
+  icon: 'file' | 'image'; status: 'parsing' | 'ready' | 'error' | 'ocr'
   result?: ParseResult; preview?: string; error?: string
+}
+
+interface OcrDialogState {
+  file:       File
+  attId:      string
+  totalPages: number
 }
 
 const attachments    = ref<Attachment[]>([])
 const injectedNotes  = ref<{ id: string; title: string }[]>([])
+const ocrDialog      = ref<OcrDialogState | null>(null)
 
 const canSend = computed(() =>
   (text.value.trim().length > 0 || attachments.value.some(a => a.status === 'ready')) &&
@@ -230,7 +238,17 @@ async function addAttachment(file: File) {
   } : undefined
 
   try {
-    const result  = await parseFile(file, parseOptions)
+    const result = await parseFile(file, parseOptions)
+
+    if (result.needsOcr) {
+      // Scanned PDF — hand off to OCR dialog (only one at a time)
+      att.type   = 'PDF（扫描件）'
+      att.status = 'ocr'
+      att.result = result
+      ocrDialog.value = { file, attId: id, totalPages: result.pages ?? 0 }
+      return
+    }
+
     att.type   = result.type
     att.result = result
     att.status = 'ready'
@@ -238,6 +256,22 @@ async function addAttachment(file: File) {
     att.status = 'error'
     att.error  = err.message
   }
+}
+
+function onOcrDone(text: string, pagesProcessed: number) {
+  const attId = ocrDialog.value?.attId
+  ocrDialog.value = null
+  const att = attachments.value.find(a => a.id === attId)
+  if (!att) return
+  att.result = { text, type: `PDF·OCR（${pagesProcessed} 页）`, isOcr: true, pages: pagesProcessed }
+  att.type   = att.result.type
+  att.status = 'ready'
+}
+
+function onOcrCancel() {
+  const attId = ocrDialog.value?.attId
+  ocrDialog.value = null
+  if (attId) attachments.value = attachments.value.filter(a => a.id !== attId)
 }
 
 function removeAttachment(id: string) {
@@ -333,14 +367,15 @@ function removeInjectedNote(noteId: string) {
           </button>
         </template>
         <template v-else>
-          <Loader v-if="att.status === 'parsing'" class="w-2.5 h-2.5 animate-spin shrink-0" />
+          <Loader v-if="att.status === 'parsing' || att.status === 'ocr'" class="w-2.5 h-2.5 animate-spin shrink-0" />
           <FileText v-else class="w-2.5 h-2.5 shrink-0" />
           <span class="max-w-[140px] truncate">{{ att.name }}</span>
           <span v-if="att.status === 'parsing'" class="opacity-50">解析中…</span>
+          <span v-else-if="att.status === 'ocr'" class="text-blue-500 dark:text-blue-400">OCR 识别中…</span>
           <span v-else-if="att.status === 'ready'" class="opacity-50">{{ att.type }}</span>
           <span v-if="att.result?.warning" class="cursor-help" :title="att.result.warning"><AlertCircle class="w-2.5 h-2.5 text-amber-500" /></span>
           <span v-if="att.status === 'error'" class="cursor-help" :title="att.error"><AlertCircle class="w-2.5 h-2.5" /></span>
-          <button v-if="att.status !== 'parsing'" class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500" @click="removeAttachment(att.id)"><X class="w-2.5 h-2.5" /></button>
+          <button v-if="att.status !== 'parsing' && att.status !== 'ocr'" class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500" @click="removeAttachment(att.id)"><X class="w-2.5 h-2.5" /></button>
         </template>
       </div>
     </div>
@@ -431,6 +466,15 @@ function removeInjectedNote(noteId: string) {
       </div>
     </div>
   </div>
+
+  <!-- ── OCR progress dialog ── -->
+  <OcrProgressDialog
+    v-if="ocrDialog"
+    :file="ocrDialog.file"
+    :total-pages="ocrDialog.totalPages"
+    @done="onOcrDone"
+    @cancel="onOcrCancel"
+  />
 
   <!-- ── Expand modal (bottom sheet) ── -->
   <Teleport to="body">

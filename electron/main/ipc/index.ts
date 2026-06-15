@@ -4,6 +4,9 @@ import fs from 'fs'
 import { randomUUID } from 'crypto'
 import JSZip from 'jszip'
 import { getDatabase } from '../db'
+import { testConnection, syncMemos } from '../sync/memos'
+import { testWebDav, syncNotes as webdavSyncNotes } from '../sync/webdav'
+import { embedText, cosineSimilarity, getEmbeddingModel } from '../services/embedding'
 
 const store = new Store()
 
@@ -120,14 +123,19 @@ export function registerIpcHandlers(): void {
 
     if (filter.categoryId) { where.push('category_id = ?'); params.push(filter.categoryId) }
     if (filter.search) {
-      // Use FTS5 for search
+      // FTS5 MATCH with snippet() for highlighted excerpts (column 0=title, 1=content)
       const ftsRows = db.prepare(`
-        SELECT n.* FROM notes n
+        SELECT n.*,
+          snippet(notes_fts, 1, '\x01', '\x02', '…', 20) AS search_snippet
+        FROM notes n
         JOIN notes_fts ON n.rowid = notes_fts.rowid
         WHERE notes_fts MATCH ?
         ORDER BY n.updated_at DESC
       `).all(filter.search + '*') as any[]
-      const notes = ccAll(ftsRows)
+      const notes = ccAll(ftsRows).map((n: any) => ({
+        ...n,
+        searchSnippet: n.searchSnippet ?? null
+      }))
       return attachTags(db, notes)
     }
 
@@ -139,12 +147,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('db:notes:create', (_, n: any) => {
     getDatabase().prepare(`
-      INSERT INTO notes (id, title, content, category_id, color, word_count, created_at, updated_at, source_type, source_id, source_msg_id)
-      VALUES (@id, @title, @content, @categoryId, @color, @wordCount, @createdAt, @updatedAt, @sourceType, @sourceId, @sourceMsgId)
+      INSERT INTO notes (id, title, content, category_id, color, word_count, visibility, created_at, updated_at, source_type, source_id, source_msg_id)
+      VALUES (@id, @title, @content, @categoryId, @color, @wordCount, @visibility, @createdAt, @updatedAt, @sourceType, @sourceId, @sourceMsgId)
     `).run({
       id: n.id, title: n.title, content: n.content ?? '',
       categoryId: n.categoryId ?? null, color: n.color ?? 'none',
-      wordCount: n.wordCount ?? 0, createdAt: n.createdAt, updatedAt: n.updatedAt,
+      wordCount: n.wordCount ?? 0, visibility: n.visibility ?? 'private',
+      createdAt: n.createdAt, updatedAt: n.updatedAt,
       sourceType: n.sourceType ?? null, sourceId: n.sourceId ?? null, sourceMsgId: n.sourceMsgId ?? null
     })
     return n
@@ -154,7 +163,8 @@ export function registerIpcHandlers(): void {
     const db = getDatabase()
     const colMap: Record<string, string> = {
       title: 'title', content: 'content', categoryId: 'category_id',
-      color: 'color', wordCount: 'word_count', updatedAt: 'updated_at'
+      color: 'color', wordCount: 'word_count', updatedAt: 'updated_at',
+      visibility: 'visibility', memosName: 'memos_name', memosSyncedAt: 'memos_synced_at'
     }
     const parts: string[] = []
     const params: any = { id }
@@ -664,10 +674,218 @@ ${memText}`
     return { success: true, filePath }
   })
 
+  // ── Memos sync + resource upload ─────────────────────────────────────────
+  ipcMain.handle('memos:uploadResource', async (_, { buffer, filename, mimeType }: { buffer: ArrayBuffer; filename: string; mimeType: string }) => {
+    const url   = (store.get('memosUrl')   as string | undefined)?.trim() ?? ''
+    const token = (store.get('memosToken') as string | undefined)?.trim() ?? ''
+    if (!url || !token) throw new Error('Memos 未配置')
+    const base = url.replace(/\/$/, '')
+    // New Memos API (v0.23+): /api/v1/attachments expects JSON with base64-encoded content
+    const content = Buffer.from(buffer).toString('base64')
+    const res = await net.fetch(`${base}/api/v1/attachments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content, type: mimeType })
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`Memos upload HTTP ${res.status}: ${text.slice(0, 80)}`)
+    }
+    const json = await res.json() as any
+    // Returns { name: "attachments/<uid>", filename, type, ... }
+    const uid = json.name?.split('/').pop()
+    if (!uid) throw new Error('Memos 未返回资源 ID')
+    const host = new URL(base).host
+    return { uid, filename, mimeType, url: `memos-asset://${host}/file/attachments/${uid}/${encodeURIComponent(filename)}` }
+  })
+
+  ipcMain.handle('memos:test', async () => {
+    const url   = (store.get('memosUrl')   as string | undefined)?.trim() ?? ''
+    const token = (store.get('memosToken') as string | undefined)?.trim() ?? ''
+    return testConnection({ url, token })
+  })
+
+  ipcMain.handle('memos:sync', async () => {
+    const url   = (store.get('memosUrl')   as string | undefined)?.trim() ?? ''
+    const token = (store.get('memosToken') as string | undefined)?.trim() ?? ''
+    if (!url || !token) return { ok: false, errors: ['Memos 未配置'] }
+    try {
+      return await syncMemos(getDatabase(), { url, token })
+    } catch (e: any) {
+      return { ok: false, added: 0, updated: 0, deleted: 0, syncedAt: 0, errors: [e.message] }
+    }
+  })
+
+  ipcMain.handle('memos:getStatus', () => {
+    const db  = getDatabase()
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'memosLastSyncAt'").get() as any
+    const lastSyncAt = row ? (parseInt(JSON.parse(row.value)) || 0) : 0
+    return { lastSyncAt }
+  })
+
   // ── Shell ─────────────────────────────────────────────────────────────────
   ipcMain.handle('shell:openPath',         (_, p: string)   => shell.openPath(p))
   ipcMain.handle('shell:showItemInFolder', (_, p: string)   => { shell.showItemInFolder(p); return true })
   ipcMain.handle('shell:openExternal',     (_, url: string) => shell.openExternal(url))
+
+  // ── Picbed (Cloudflare Worker + R2) ──────────────────────────────────────
+  // All requests go through net.fetch in main process to avoid file:// CORS restrictions
+  const _picbedTokenCache = new Map<string, string>()
+
+  async function picbedGetToken(baseUrl: string, password: string): Promise<string> {
+    const key = `${baseUrl}::${password}`
+    if (_picbedTokenCache.has(key)) return _picbedTokenCache.get(key)!
+    const res = await net.fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`密码错误 (${res.status}): ${text.slice(0, 80)}`)
+    }
+    const { token } = await res.json() as { token: string }
+    _picbedTokenCache.set(key, token)
+    return token
+  }
+
+  async function picbedAuthFetch(method: string, path: string, baseUrl: string, password: string, body?: BodyInit): Promise<Response> {
+    let sessionToken = await picbedGetToken(baseUrl, password)
+    const url = `${baseUrl}${path}`
+    const makeReq = (tok: string) => net.fetch(url, { method, headers: { 'X-Auth-Token': tok }, body })
+    const res = await makeReq(sessionToken)
+    if (res.status === 401) {
+      _picbedTokenCache.delete(`${baseUrl}::${password}`)
+      sessionToken = await picbedGetToken(baseUrl, password)
+      const retry = await makeReq(sessionToken)
+      if (!retry.ok) {
+        const text = await retry.text().catch(() => retry.statusText)
+        throw new Error(`${retry.status}: ${text.slice(0, 120)}`)
+      }
+      return retry
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`${res.status}: ${text.slice(0, 120)}`)
+    }
+    return res
+  }
+
+  ipcMain.handle('picbed:test', async () => {
+    const baseUrl  = (store.get('picbedUrl')   as string | undefined)?.trim().replace(/\/$/, '') ?? ''
+    const password = (store.get('picbedToken') as string | undefined)?.trim() ?? ''
+    if (!baseUrl || !password) return { ok: false, error: '图床未配置' }
+    try {
+      await picbedAuthFetch('GET', '/list?prefix=&delimiter=/', baseUrl, password)
+      return { ok: true }
+    } catch (e: any) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('picbed:upload', async (_, { buffer, filename, mimeType, folder }: { buffer: ArrayBuffer; filename: string; mimeType: string; folder?: string }) => {
+    const baseUrl  = (store.get('picbedUrl')   as string | undefined)?.trim().replace(/\/$/, '') ?? ''
+    const password = (store.get('picbedToken') as string | undefined)?.trim() ?? ''
+    if (!baseUrl || !password) throw new Error('图床未配置')
+    const path = folder ? (folder.endsWith('/') ? folder : folder + '/') : ''
+    const blob = new Blob([buffer], { type: mimeType })
+    const formData = new FormData()
+    formData.append('file', blob, filename)
+    formData.append('path', path)
+    const res = await picbedAuthFetch('POST', '/', baseUrl, password, formData as any)
+    return res.json()
+  })
+
+  // ── WebDAV sync ───────────────────────────────────────────────────────────
+  function getWebDavConfig() {
+    const url      = (store.get('webdavUrl')  as string | undefined)?.trim() ?? ''
+    const username = (store.get('webdavUser') as string | undefined)?.trim() ?? ''
+    const password = (store.get('webdavPass') as string | undefined)?.trim() ?? ''
+    return url ? { url, username, password } : null
+  }
+
+  ipcMain.handle('webdav:test', async () => {
+    const cfg = getWebDavConfig()
+    if (!cfg) return { ok: false, error: 'WebDAV 未配置，请先填写 URL' }
+    return testWebDav(cfg)
+  })
+
+  ipcMain.handle('webdav:sync', async () => {
+    const cfg = getWebDavConfig()
+    if (!cfg) return { ok: false, error: 'WebDAV 未配置' }
+    return webdavSyncNotes(getDatabase(), cfg)
+  })
+
+  ipcMain.handle('webdav:status', () => {
+    const db  = getDatabase()
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'webdavLastSyncAt'").get() as any
+    return { lastSyncAt: row ? (parseInt(JSON.parse(row.value)) || 0) : 0 }
+  })
+
+  // ── Semantic search ───────────────────────────────────────────────────────
+  ipcMain.handle('semantic:embed', async (_, noteId: string) => {
+    try {
+      const db   = getDatabase()
+      const note = db.prepare('SELECT title, content FROM notes WHERE id = ?').get(noteId) as any
+      if (!note) return { success: false, error: 'Note not found' }
+      const vector = await embedText(`${note.title}\n\n${note.content}`)
+      if (!vector) return { success: false, error: 'Embedding failed — check API key and embedding model config' }
+      db.prepare('UPDATE notes SET embedding = ?, embedding_model = ? WHERE id = ?')
+        .run(JSON.stringify(vector), getEmbeddingModel(), noteId)
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('semantic:embed:all', async () => {
+    try {
+      const db    = getDatabase()
+      const notes = db.prepare('SELECT id, title, content FROM notes WHERE embedding IS NULL').all() as any[]
+      let done = 0
+      for (const note of notes) {
+        const vector = await embedText(`${note.title}\n\n${note.content}`)
+        if (vector) {
+          db.prepare('UPDATE notes SET embedding = ?, embedding_model = ? WHERE id = ?')
+            .run(JSON.stringify(vector), getEmbeddingModel(), note.id)
+          done++
+        }
+      }
+      return { success: true, done, total: notes.length }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('semantic:search', async (_, query: string) => {
+    try {
+      const db      = getDatabase()
+      const queryVec = await embedText(query)
+      if (!queryVec) return { success: false, error: '向量化失败，请检查 API Key 及 Embedding 模型配置' }
+      const rows = db.prepare('SELECT id, embedding FROM notes WHERE embedding IS NOT NULL').all() as any[]
+      const scored = rows
+        .map((row: any) => {
+          try {
+            const vec   = JSON.parse(row.embedding) as number[]
+            const score = cosineSimilarity(queryVec, vec)
+            return { id: row.id as string, score }
+          } catch { return { id: row.id as string, score: 0 } }
+        })
+        .filter((r: any) => r.score > 0.3)
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 20)
+      return { success: true, results: scored as { id: string; score: number }[] }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('semantic:status', () => {
+    const db       = getDatabase()
+    const total    = (db.prepare('SELECT COUNT(*) as c FROM notes').get() as any).c as number
+    const embedded = (db.prepare('SELECT COUNT(*) as c FROM notes WHERE embedding IS NOT NULL').get() as any).c as number
+    return { total, embedded }
+  })
 }
 
 function attachTags(db: any, notes: any[]): any[] {

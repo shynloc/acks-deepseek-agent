@@ -339,7 +339,7 @@ toolRegistry.register({
     },
   },
 
-  async execute(args: { filename: string; slides: SlideSpec[] }) {
+  handler: async (args: { filename: string; slides: SlideSpec[] }) => {
     const desktopDir = app.getPath('desktop')
     const outPath    = uniquePath(desktopDir, args.filename, 'pptx')
 
