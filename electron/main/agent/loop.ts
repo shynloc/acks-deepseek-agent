@@ -16,11 +16,18 @@ export interface ToolCall {
   function: { name: string; arguments: string }
 }
 
+export interface AgentUsage {
+  promptTokens:    number
+  completionTokens: number
+  cacheHitTokens:  number
+  cacheMissTokens: number
+}
+
 export interface AgentCallbacks {
   onDelta:      (text: string) => void
   onToolCall:   (name: string, args: Record<string, unknown>, callId: string) => void
   onToolResult: (name: string, result: string, isError: boolean, callId: string) => void
-  onDone:       (usage: { promptTokens: number; completionTokens: number }) => void
+  onDone:       (usage: AgentUsage) => void
   onError:      (message: string) => void
   signal?:      AbortSignal
 }
@@ -46,7 +53,7 @@ export async function runAgentLoop(
 
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
-  let totalUsage = { promptTokens: 0, completionTokens: 0 }
+  let totalUsage: AgentUsage = { promptTokens: 0, completionTokens: 0, cacheHitTokens: 0, cacheMissTokens: 0 }
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     // ── Stream one LLM turn, fall back to non-streaming if SSE drops ─────────
@@ -116,8 +123,10 @@ export async function runAgentLoop(
           textContent  = choice?.message?.content ?? ''
           finishReason = choice?.finish_reason ?? null
           usage        = {
-            promptTokens:     fbData.usage?.prompt_tokens     ?? 0,
-            completionTokens: fbData.usage?.completion_tokens ?? 0
+            promptTokens:     fbData.usage?.prompt_tokens               ?? 0,
+            completionTokens: fbData.usage?.completion_tokens           ?? 0,
+            cacheHitTokens:   fbData.usage?.prompt_cache_hit_tokens     ?? 0,
+            cacheMissTokens:  fbData.usage?.prompt_cache_miss_tokens    ?? 0,
           }
           console.log(`[agent iter=${iter}] fallback result: text=${JSON.stringify(textContent.slice(0,120))}`)
           if (textContent) callbacks.onDelta(textContent)
@@ -143,6 +152,8 @@ export async function runAgentLoop(
 
     totalUsage.promptTokens     += usage.promptTokens
     totalUsage.completionTokens += usage.completionTokens
+    totalUsage.cacheHitTokens   += usage.cacheHitTokens
+    totalUsage.cacheMissTokens  += usage.cacheMissTokens
 
     // ── No tool calls → final answer, exit loop ──────────────────────────────
     if (!toolCalls.length) {
@@ -228,6 +239,8 @@ async function runFinalTurn(
     const { usage } = await parseStream(res, callbacks)
     totalUsage.promptTokens     += usage.promptTokens
     totalUsage.completionTokens += usage.completionTokens
+    totalUsage.cacheHitTokens   += usage.cacheHitTokens
+    totalUsage.cacheMissTokens  += usage.cacheMissTokens
     callbacks.onDone(totalUsage)
   } catch {
     callbacks.onDone(totalUsage)
@@ -242,7 +255,7 @@ async function parseStream(
 ): Promise<{
   textContent:    string
   toolCalls:      ToolCall[]
-  usage:          { promptTokens: number; completionTokens: number }
+  usage:          AgentUsage
   finishReason:   string | null
   streamComplete: boolean   // true only if stream ended with [DONE] or a finish_reason
 }> {
@@ -255,7 +268,7 @@ async function parseStream(
   let finishReason      = null as string | null
   let streamComplete    = false
   const tcBufs = new Map<number, { id: string; name: string; args: string }>()
-  let usage     = { promptTokens: 0, completionTokens: 0 }
+  let usage: AgentUsage = { promptTokens: 0, completionTokens: 0, cacheHitTokens: 0, cacheMissTokens: 0 }
   let remainder = ''
 
   while (true) {
@@ -315,7 +328,12 @@ async function parseStream(
         }
 
         if (json.usage) {
-          usage = { promptTokens: json.usage.prompt_tokens ?? 0, completionTokens: json.usage.completion_tokens ?? 0 }
+          usage = {
+            promptTokens:     json.usage.prompt_tokens               ?? 0,
+            completionTokens: json.usage.completion_tokens           ?? 0,
+            cacheHitTokens:   json.usage.prompt_cache_hit_tokens     ?? 0,
+            cacheMissTokens:  json.usage.prompt_cache_miss_tokens    ?? 0,
+          }
         }
       } catch { /* partial JSON line, skip */ }
     }

@@ -61,6 +61,17 @@ const bubbleText     = computed(() => props.message.displayText ?? props.message
 const hasAttachments = computed(() => !!props.message.attachments?.length)
 const hasArtifacts   = computed(() => !!props.artifacts?.length)
 
+// KV Cache 命中统计
+// 缓存命中价：0.02元/M，未命中：1元/M（flash定价）→ 节省 = hit * (1-0.02) / 1_000_000
+const cacheInfo = computed(() => {
+  const hit  = props.message.cacheHitTokens  ?? 0
+  const miss = props.message.cacheMissTokens ?? 0
+  if (hit <= 0 || props.message.role !== 'assistant') return null
+  const savedYuan = (hit * (1 - 0.02)) / 1_000_000
+  const hitPct    = Math.round(hit / (hit + miss) * 100)
+  return { hit, hitPct, savedYuan }
+})
+
 const copied = ref(false)
 async function copyContent() {
   await navigator.clipboard.writeText(props.message.content)
@@ -139,7 +150,7 @@ async function showArtifactFolder(a: Artifact) {
           <div v-else v-html="renderedContent || message.content" />
         </div>
 
-        <!-- Action buttons -->
+        <!-- Action buttons + cache hit info -->
         <div
           v-if="!isStreaming && message.content"
           class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -158,6 +169,15 @@ async function showArtifactFolder(a: Artifact) {
             <Copy v-else class="w-3 h-3" />
             {{ copied ? '已复制' : '复制' }}
           </button>
+          <!-- KV Cache 命中提示 -->
+          <span
+            v-if="cacheInfo"
+            class="ml-auto flex items-center gap-1 text-[10px] text-emerald-500 dark:text-emerald-400 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg"
+            :title="`缓存命中 ${cacheInfo.hit.toLocaleString()} tokens，共 ${Math.round((cacheInfo.hit + (message.cacheMissTokens??0))/1000)}K tokens`"
+          >
+            ⚡ 缓存 {{ cacheInfo.hitPct }}%
+            <span v-if="cacheInfo.savedYuan >= 0.001">· 省 ¥{{ cacheInfo.savedYuan.toFixed(3) }}</span>
+          </span>
         </div>
 
         <!-- File artifact cards -->
@@ -306,4 +326,44 @@ async function showArtifactFolder(a: Artifact) {
   margin-left: 1px;
 }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* Thinking block (深度思考模式折叠块) */
+.ai-message :deep(.thinking-block) {
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 10px;
+  margin: 0.6em 0;
+  overflow: hidden;
+}
+.dark .ai-message :deep(.thinking-block) {
+  background: #1e1b35;
+  border-color: #4c1d95;
+}
+.ai-message :deep(.thinking-block summary) {
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7c3aed;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dark .ai-message :deep(.thinking-block summary) { color: #a78bfa; }
+.ai-message :deep(.thinking-block summary::before) {
+  content: '▶';
+  font-size: 0.6em;
+  transition: transform 0.2s;
+}
+.ai-message :deep(.thinking-block[open] summary::before) { transform: rotate(90deg); }
+.ai-message :deep(.thinking-block > *:not(summary)) {
+  padding: 0 12px 10px;
+  font-size: 0.8rem;
+  color: #6d28d9;
+  line-height: 1.65;
+  opacity: 0.85;
+}
+.dark .ai-message :deep(.thinking-block > *:not(summary)) { color: #c4b5fd; }
 </style>

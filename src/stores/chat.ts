@@ -28,6 +28,8 @@ export interface Message {
   displayText?: string     // what to show in the bubble (just user's typed text), in-memory only
   attachments?: MessageAttachment[]  // in-memory only, not persisted
   tokensUsed: number
+  cacheHitTokens?: number  // KV Cache 命中 tokens（省钱）
+  cacheMissTokens?: number
   createdAt: number
 }
 
@@ -229,7 +231,7 @@ export const useChatStore = defineStore('chat', () => {
     // Increment usage count for matched skills (fire-and-forget)
     for (const s of matchedSkills) skillsStore.incrementUsage(s.id)
 
-    let finalUsage = { promptTokens: 0, completionTokens: 0 }
+    let finalUsage = { promptTokens: 0, completionTokens: 0, cacheHitTokens: 0, cacheMissTokens: 0 }
     let hadError   = false
 
     // IPC race-condition fix: agent:delta and agent:done travel through the same send
@@ -324,7 +326,9 @@ export const useChatStore = defineStore('chat', () => {
       isStreaming.value = false
       const doneMsg = messages.value[messages.value.length - 1]
       if (doneMsg?.id === assistantMsg.id) {
-        doneMsg.tokensUsed = finalUsage.completionTokens
+        doneMsg.tokensUsed      = finalUsage.completionTokens
+        doneMsg.cacheHitTokens  = finalUsage.cacheHitTokens
+        doneMsg.cacheMissTokens = finalUsage.cacheMissTokens
       }
 
       // Persist assistant message
