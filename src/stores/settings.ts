@@ -14,6 +14,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const maxTokens   = ref(8192)    // DeepSeek default ~4096, flash/pro support up to 384K
   const temperature = ref(1.0)     // 0 = deterministic, 1 = balanced, 2 = creative
 
+  // ── Thinking Mode (深度思考，DeepSeek-V4 支持) ────────────────────────────
+  const thinkingEnabled  = ref(false)
+  const reasoningEffort  = ref<'high'|'max'>('high')
+
   // ── User Profile ──────────────────────────────────────────────────────────
   const userName    = ref('')
   const userRole    = ref('')
@@ -107,8 +111,10 @@ export const useSettingsStore = defineStore('settings', () => {
     apiKey.value   = (await window.api.config.get('apiKey')   as string) ?? ''
     baseUrl.value  = (await window.api.config.get('baseUrl')  as string) ?? 'https://api.deepseek.com'
     model.value    = (await window.api.config.get('model')    as string) ?? 'deepseek-v4-flash'
-    maxTokens.value   = Number((await window.api.config.get('maxTokens'))   ?? 8192) || 8192
-    temperature.value = Number((await window.api.config.get('temperature')) ?? 1.0)
+    maxTokens.value      = Number((await window.api.config.get('maxTokens'))   ?? 8192) || 8192
+    temperature.value    = Number((await window.api.config.get('temperature')) ?? 1.0)
+    thinkingEnabled.value = (await window.api.config.get('thinkingEnabled') as boolean) ?? false
+    reasoningEffort.value = ((await window.api.config.get('reasoningEffort') as string) ?? 'high') as 'high'|'max'
     userName.value    = (await window.api.config.get('userName')    as string) ?? ''
     userRole.value    = (await window.api.config.get('userRole')    as string) ?? ''
     userContext.value = (await window.api.config.get('userContext') as string) ?? ''
@@ -143,9 +149,11 @@ export const useSettingsStore = defineStore('settings', () => {
   async function save(): Promise<void> {
     await window.api.config.set('apiKey',  apiKey.value)
     await window.api.config.set('baseUrl', baseUrl.value)
-    await window.api.config.set('model',      model.value)
-    await window.api.config.set('maxTokens',   maxTokens.value)
-    await window.api.config.set('temperature', temperature.value)
+    await window.api.config.set('model',           model.value)
+    await window.api.config.set('maxTokens',       maxTokens.value)
+    await window.api.config.set('temperature',     temperature.value)
+    await window.api.config.set('thinkingEnabled', thinkingEnabled.value)
+    await window.api.config.set('reasoningEffort', reasoningEffort.value)
     await window.api.config.set('userName',    userName.value)
     await window.api.config.set('userRole',    userRole.value)
     await window.api.config.set('userContext', userContext.value)
@@ -287,7 +295,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
-    apiKey, baseUrl, model, maxTokens, temperature, isTesting, testResult,
+    apiKey, baseUrl, model, maxTokens, temperature, thinkingEnabled, reasoningEffort, isTesting, testResult,
     userName, userRole, userContext, userEnabled,
     soulContent, soulEnabled,
     tavilyKey, tavilyEnabled, webSearchEnabled, webSearchActive,

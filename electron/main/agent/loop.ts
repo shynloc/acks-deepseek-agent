@@ -39,8 +39,10 @@ export async function runAgentLoop(
   const apiKey    = (ctx.store.get('apiKey')    as string | undefined) ?? ''
   const baseUrl   = ((ctx.store.get('baseUrl') as string | undefined) ?? 'https://api.deepseek.com').replace(/\/$/, '')
   const model     = (ctx.store.get('model')    as string | undefined) ?? 'deepseek-v4-flash'
-  const maxTokens   = Number((ctx.store.get('maxTokens')   as number | undefined) ?? 8192) || 8192
-  const temperature = Number((ctx.store.get('temperature') as number | undefined) ?? 1.0)
+  const maxTokens      = Number((ctx.store.get('maxTokens')      as number  | undefined) ?? 8192) || 8192
+  const temperature    = Number((ctx.store.get('temperature')    as number  | undefined) ?? 1.0)
+  const thinkingEnabled = (ctx.store.get('thinkingEnabled') as boolean | undefined) ?? false
+  const reasoningEffort = (ctx.store.get('reasoningEffort') as string  | undefined) ?? 'high'
 
   if (!apiKey) { callbacks.onError('请先在设置中配置 DeepSeek API Key'); return }
 
@@ -48,7 +50,16 @@ export async function runAgentLoop(
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     // ── Stream one LLM turn, fall back to non-streaming if SSE drops ─────────
-    const requestBody = { model, messages, tools: toolsDef, tool_choice: 'auto', max_tokens: maxTokens, temperature }
+    const thinkingParams = thinkingEnabled
+      ? { thinking: { type: 'enabled' }, reasoning_effort: reasoningEffort }
+      : { thinking: { type: 'disabled' } }
+    // Thinking mode does not support temperature/presence_penalty/frequency_penalty
+    const requestBody = {
+      model, messages, tools: toolsDef, tool_choice: 'auto',
+      max_tokens: maxTokens,
+      ...(thinkingEnabled ? {} : { temperature }),
+      ...thinkingParams
+    }
     const headers     = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
     const signal      = callbacks.signal as RequestInit['signal']
 
@@ -238,9 +249,11 @@ async function parseStream(
   const reader  = response.body!.getReader()
   const decoder = new TextDecoder()
 
-  let textContent    = ''
-  let finishReason   = null as string | null
-  let streamComplete = false
+  let textContent       = ''
+  let reasoningContent  = ''
+  let reasoningEmitted  = false
+  let finishReason      = null as string | null
+  let streamComplete    = false
   const tcBufs = new Map<number, { id: string; name: string; args: string }>()
   let usage     = { promptTokens: 0, completionTokens: 0 }
   let remainder = ''
@@ -257,13 +270,31 @@ async function parseStream(
       const trimmed = line.trim()
       if (!trimmed.startsWith('data: ')) continue
       const data = trimmed.slice(6)
-      if (data === '[DONE]') { streamComplete = true; continue }
+      if (data === '[DONE]') {
+        // Flush reasoning block before [DONE]
+        if (reasoningContent && !reasoningEmitted) {
+          callbacks.onDelta(`<details class="thinking-block">\n<summary>💭 思考过程</summary>\n\n${reasoningContent}\n</details>\n\n`)
+          reasoningEmitted = true
+        }
+        streamComplete = true
+        continue
+      }
 
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta
 
+        // Accumulate reasoning_content (thinking mode)
+        if (delta?.reasoning_content) {
+          reasoningContent += delta.reasoning_content
+        }
+
         if (delta?.content) {
+          // Flush reasoning block before first content token
+          if (reasoningContent && !reasoningEmitted) {
+            callbacks.onDelta(`<details class="thinking-block">\n<summary>💭 思考过程</summary>\n\n${reasoningContent}\n</details>\n\n`)
+            reasoningEmitted = true
+          }
           textContent += delta.content
           callbacks.onDelta(delta.content)
         }

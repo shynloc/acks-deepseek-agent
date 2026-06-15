@@ -184,6 +184,24 @@ const statsData = ref<{
   days: Array<{ label: string; notes: number; messages: number }>
 } | null>(null)
 
+// Balance
+interface BalanceInfo { currency: string; total_balance: string; granted_balance: string; topped_up_balance: string }
+const balanceData    = ref<{ isAvailable: boolean; balances: BalanceInfo[] } | null>(null)
+const balanceLoading = ref(false)
+const balanceError   = ref('')
+
+async function loadBalance() {
+  if (!settings.apiKey) return
+  balanceLoading.value = true
+  balanceError.value   = ''
+  try {
+    const r = await (window.api as any).apiBalance()
+    if (r.ok) balanceData.value = { isAvailable: r.isAvailable, balances: r.balances }
+    else balanceError.value = r.error ?? '查询失败'
+  } catch (e: any) { balanceError.value = e.message }
+  balanceLoading.value = false
+}
+
 // Operation feedback
 const opStatus = ref<{ type: 'success' | 'error'; msg: string } | null>(null)
 const opLoading = ref<string | null>(null)  // which operation is running
@@ -213,6 +231,7 @@ onMounted(async () => {
   await memoriesStore.load()
   if (chat.conversations.length === 0) await chat.loadConversations()
   await loadStats()
+  await loadBalance()
 })
 
 const statCards = computed(() => [
@@ -347,6 +366,74 @@ async function importMarkdown() {
         </div>
       </section>
 
+      <!-- ── DeepSeek 账户余额 ── -->
+      <section v-if="settings.apiKey" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <Zap class="w-4 h-4 text-blue-500" />
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">DeepSeek 账户余额</h2>
+          </div>
+          <button
+            @click="loadBalance"
+            :disabled="balanceLoading"
+            class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40"
+            title="刷新余额"
+          >
+            <RefreshCw class="w-3.5 h-3.5" :class="balanceLoading ? 'animate-spin' : ''" />
+          </button>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="balanceLoading" class="flex items-center gap-2 text-sm text-gray-400 py-2">
+          <Loader class="w-4 h-4 animate-spin" /> 查询中…
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="balanceError" class="text-sm text-red-500 py-1">{{ balanceError }}</div>
+
+        <!-- Balance cards -->
+        <div v-else-if="balanceData" class="space-y-2">
+          <!-- Available status -->
+          <div class="flex items-center gap-1.5 mb-3">
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="balanceData.isAvailable ? 'bg-emerald-400' : 'bg-red-400'"
+            />
+            <span class="text-xs" :class="balanceData.isAvailable ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'">
+              {{ balanceData.isAvailable ? '账户可用，余额充足' : '余额不足，请充值' }}
+            </span>
+          </div>
+
+          <div v-for="b in balanceData.balances" :key="b.currency" class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+            <div class="flex items-baseline justify-between mb-3">
+              <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ b.currency === 'CNY' ? '人民币账户' : 'USD 账户' }}</span>
+              <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.total_balance).toFixed(2) }}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
+                <div class="text-[11px] text-gray-400 mb-0.5">赠金余额</div>
+                <div class="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.granted_balance).toFixed(2) }}
+                </div>
+              </div>
+              <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
+                <div class="text-[11px] text-gray-400 mb-0.5">充值余额</div>
+                <div class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                  {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.topped_up_balance).toFixed(2) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-[11px] text-gray-400 text-right">扣款顺序：赠金 → 充值余额</p>
+        </div>
+
+        <!-- Not configured -->
+        <div v-else class="text-sm text-gray-400 py-1">配置 API Key 后自动查询</div>
+      </section>
+
       <!-- ── API 配置 ── -->
       <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
         <div class="flex items-center gap-2 mb-4">
@@ -390,6 +477,51 @@ async function importMarkdown() {
               <option value="deepseek-v4-flash">deepseek-v4-flash（通用对话，速度快）</option>
               <option value="deepseek-v4-pro">deepseek-v4-pro（深度推理，适合复杂分析）</option>
             </select>
+          </div>
+
+          <!-- Thinking Mode -->
+          <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
+            <div class="flex items-center justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <span class="text-sm font-medium text-indigo-900 dark:text-indigo-200">深度思考模式</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    :class="settings.thinkingEnabled
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-500 dark:text-indigo-400'"
+                  >{{ settings.thinkingEnabled ? '已开启' : '已关闭' }}</span>
+                </div>
+                <p class="text-[11px] text-indigo-600 dark:text-indigo-400">
+                  开启后 AI 在回答前先输出思维链，分析更深入，速度稍慢
+                  <span v-if="settings.model !== 'deepseek-v4-pro'" class="text-amber-600 dark:text-amber-400 ml-1">（建议搭配 Pro 模型使用）</span>
+                </p>
+              </div>
+              <button
+                @click="settings.thinkingEnabled = !settings.thinkingEnabled; settings.save()"
+                class="ml-3 shrink-0 transition-colors"
+                :class="settings.thinkingEnabled ? 'text-indigo-500 hover:text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+              >
+                <ToggleRight v-if="settings.thinkingEnabled" class="w-7 h-7" />
+                <ToggleLeft  v-else                          class="w-7 h-7" />
+              </button>
+            </div>
+            <!-- Reasoning effort (only when thinking enabled) -->
+            <div v-if="settings.thinkingEnabled" class="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-700 flex items-center gap-3">
+              <label class="text-xs text-indigo-700 dark:text-indigo-300 shrink-0 font-medium">推理深度</label>
+              <div class="flex gap-1.5 flex-1">
+                <button
+                  v-for="effort in [{ v:'high', label:'高' }, { v:'max', label:'超深' }]"
+                  :key="effort.v"
+                  @click="settings.reasoningEffort = effort.v; settings.save()"
+                  class="flex-1 text-xs py-1 rounded-lg border font-medium transition-all"
+                  :class="settings.reasoningEffort === effort.v
+                    ? 'border-indigo-500 bg-indigo-500 text-white'
+                    : 'border-indigo-200 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:border-indigo-400'"
+                >{{ effort.label }}</button>
+              </div>
+              <span class="text-[10px] text-indigo-400 shrink-0">{{ settings.reasoningEffort === 'max' ? '复杂 Agent 任务推荐' : '日常分析推荐' }}</span>
+            </div>
           </div>
 
           <!-- Max Tokens -->

@@ -653,6 +653,23 @@ ${memText}`
   })
 
   // ── Generic API test (runs in main process, no CSP) ──────────────────────
+  ipcMain.handle('api:balance', async () => {
+    const apiKey  = (store.get('apiKey')  as string | undefined)?.trim() ?? ''
+    const baseUrl = (store.get('baseUrl') as string | undefined)?.trim() ?? 'https://api.deepseek.com'
+    if (!apiKey) return { ok: false, error: '未配置 API Key' }
+    const base = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '')
+    try {
+      const res = await net.fetch(`${base}/user/balance`, {
+        headers: { Authorization: `Bearer ${apiKey}` }
+      })
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+      const data = await res.json() as any
+      return { ok: true, isAvailable: data.is_available, balances: data.balance_infos ?? [] }
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? '网络错误' }
+    }
+  })
+
   ipcMain.handle('api:test', async (_, { url, apiKey, model }: { url: string; apiKey: string; model: string }) => {
     const safeKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim()
     if (!safeKey) return { ok: false, error: 'API Key 为空或包含无效字符' }

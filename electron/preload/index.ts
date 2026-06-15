@@ -104,6 +104,8 @@ const api = {
   },
   apiTest: (params: { url: string; apiKey: string; model: string }) =>
     ipcRenderer.invoke('api:test', params),
+  apiBalance: (): Promise<{ ok: boolean; isAvailable?: boolean; balances?: Array<{ currency: string; total_balance: string; granted_balance: string; topped_up_balance: string }>; error?: string }> =>
+    ipcRenderer.invoke('api:balance'),
   tavilySearch: (params: { query: string; apiKey: string; maxResults?: number }) =>
     ipcRenderer.invoke('tavily:search', params),
   agent: {
