@@ -24,13 +24,26 @@ export interface AgentUsage {
 }
 
 export interface AgentCallbacks {
-  onDelta:      (text: string) => void
-  onToolCall:   (name: string, args: Record<string, unknown>, callId: string) => void
-  onToolResult: (name: string, result: string, isError: boolean, callId: string) => void
-  onDone:       (usage: AgentUsage) => void
-  onError:      (message: string) => void
-  signal?:      AbortSignal
+  onDelta:           (text: string) => void
+  onToolCall:        (name: string, args: Record<string, unknown>, callId: string) => void
+  onToolResult:      (name: string, result: string, isError: boolean, callId: string) => void
+  onDone:            (usage: AgentUsage) => void
+  onError:           (message: string) => void
+  onConfirmNeeded?:  (name: string, args: Record<string, unknown>) => Promise<boolean>
+  signal?:           AbortSignal
 }
+
+// Action-intent keywords: if any appear in the user message, the model MUST call a tool
+const ACTION_KEYWORDS = ['帮我', '帮你', '请帮', '帮忙', '搜索', '查找', '查一下', '创建', '新建', '保存', '生成', '写', '整理', '删除', '修改', '更新']
+
+function hasActionIntent(messages: ChatMessage[]): boolean {
+  const lastUser = [...messages].reverse().find(m => m.role === 'user')
+  if (!lastUser || typeof lastUser.content !== 'string') return false
+  return ACTION_KEYWORDS.some(kw => (lastUser.content as string).includes(kw))
+}
+
+// Tools that require user confirmation before execution (irreversible)
+const CONFIRM_REQUIRED = new Set(['delete_note', 'delete_memory', 'delete_conversation'])
 
 const MAX_ITERATIONS = 10
 
@@ -60,9 +73,12 @@ export async function runAgentLoop(
     const thinkingParams = thinkingEnabled
       ? { thinking: { type: 'enabled' }, reasoning_effort: reasoningEffort }
       : { thinking: { type: 'disabled' } }
+    // First turn with explicit action intent → require at least one tool call
+    const toolChoice = (iter === 0 && toolsDef.length > 0 && hasActionIntent(messages)) ? 'required' : 'auto'
     // Thinking mode does not support temperature/presence_penalty/frequency_penalty
     const requestBody = {
-      model, messages, tools: toolsDef, tool_choice: 'auto',
+      model, messages, tools: toolsDef,
+      tool_choice: toolsDef.length > 0 ? toolChoice : 'none',
       max_tokens: maxTokens,
       ...(thinkingEnabled ? {} : { temperature }),
       ...thinkingParams
@@ -73,7 +89,7 @@ export async function runAgentLoop(
     let textContent    = ''
     let toolCalls: ToolCall[] = []
     let finishReason: string | null = null
-    let usage = { promptTokens: 0, completionTokens: 0 }
+    let usage: AgentUsage = { promptTokens: 0, completionTokens: 0, cacheHitTokens: 0, cacheMissTokens: 0 }
 
     // ① Try streaming
     let streamResponse: Response | null = null
@@ -180,11 +196,22 @@ export async function runAgentLoop(
         // Inject a final hint so DeepSeek wraps up instead of looping
         messages.push({ role: 'user', content: `[系统提示] 工具调用已被安全机制中止（${decision.message}），请直接告知用户遇到的问题，不要继续调用工具。` })
         // Run one final non-tool turn to get a human-readable reply
-        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage, maxTokens, temperature)
+        await runFinalTurn(messages, apiKey, baseUrl, model, callbacks, totalUsage, maxTokens, temperature, thinkingEnabled, reasoningEffort)
         return
       }
 
       const warningNote = decision.action === 'warn' ? `\n[注意] ${decision.message}` : ''
+
+      // Confirm before executing irreversible operations
+      if (CONFIRM_REQUIRED.has(tc.function.name) && callbacks.onConfirmNeeded) {
+        const confirmed = await callbacks.onConfirmNeeded(tc.function.name, args)
+        if (!confirmed) {
+          const cancelMsg = '用户取消了此操作'
+          messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ cancelled: true, message: cancelMsg }) })
+          callbacks.onToolResult(tc.function.name, cancelMsg, false, tc.id)
+          continue
+        }
+      }
 
       callbacks.onToolCall(tc.function.name, args, tc.id)
 
@@ -225,15 +252,25 @@ async function runFinalTurn(
   baseUrl: string,
   model: string,
   callbacks: AgentCallbacks,
-  totalUsage: { promptTokens: number; completionTokens: number },
+  totalUsage: AgentUsage,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  thinkingEnabled = false,
+  reasoningEffort = 'high'
 ): Promise<void> {
+  const thinkingParams = thinkingEnabled
+    ? { thinking: { type: 'enabled' }, reasoning_effort: reasoningEffort }
+    : { thinking: { type: 'disabled' } }
+  const body = {
+    model, messages, stream: true, max_tokens: maxTokens,
+    ...(thinkingEnabled ? {} : { temperature }),
+    ...thinkingParams
+  }
   try {
     const res = await net.fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: true, max_tokens: maxTokens, temperature })
+      body: JSON.stringify(body)
     })
     if (!res.ok) { callbacks.onDone(totalUsage); return }
     const { usage } = await parseStream(res, callbacks)

@@ -28,39 +28,45 @@ const fileInputRef    = ref<HTMLInputElement | null>(null)
 const expandMode      = ref(false)
 
 // ── Resizable input height ────────────────────────────────────────────────────
-const DEFAULT_MAX_H = 160
-const maxInputHeight = ref(
-  parseInt(localStorage.getItem('chatInputMaxH') ?? String(DEFAULT_MAX_H))
+const ABSOLUTE_MAX_H = 480
+const DEFAULT_PINNED_H = 160
+const maxInputHeight    = ref(ABSOLUTE_MAX_H)
+// pinnedInputHeight = the floor the user dragged to (0 = no pinning, auto-height)
+const pinnedInputHeight = ref(
+  parseInt(localStorage.getItem('chatInputPinnedH') ?? '0') || 0
 )
 const isDraggingHandle = ref(false)
 
 function startResizeDrag(e: MouseEvent) {
   e.preventDefault()
   isDraggingHandle.value = true
-  const startY  = e.clientY
-  const startH  = maxInputHeight.value
+  const startY = e.clientY
+  const startH = pinnedInputHeight.value || DEFAULT_PINNED_H
 
   const onMove = (ev: MouseEvent) => {
     // drag UP → increase height (startY - ev.clientY is positive when moving up)
-    const newH = Math.min(480, Math.max(80, startH + (startY - ev.clientY)))
-    maxInputHeight.value = newH
-    localStorage.setItem('chatInputMaxH', String(newH))
+    const newH = Math.min(ABSOLUTE_MAX_H, Math.max(80, startH + (startY - ev.clientY)))
+    pinnedInputHeight.value = newH
+    localStorage.setItem('chatInputPinnedH', String(newH))
     autoResize()
   }
   const onUp = () => {
     isDraggingHandle.value = false
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
 }
 
 function autoResize(): void {
   const el = textarea.value
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, maxInputHeight.value) + 'px'
+  const contentH = el.scrollHeight
+  // respect pinned floor: box stays at least as tall as what the user dragged to
+  const targetH = Math.min(Math.max(contentH, pinnedInputHeight.value), maxInputHeight.value)
+  el.style.height = targetH + 'px'
 }
 
 // ── Expand mode ───────────────────────────────────────────────────────────────
@@ -314,17 +320,24 @@ function removeInjectedNote(noteId: string) {
 
     <!-- ── Drag resize handle ── -->
     <div
-      class="group flex items-center justify-center w-full h-3 cursor-ns-resize select-none hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-      :class="isDraggingHandle ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
+      class="group flex items-center justify-center w-full h-5 cursor-ns-resize select-none transition-colors"
+      :class="isDraggingHandle
+        ? 'bg-blue-100 dark:bg-blue-900/30'
+        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/60'"
       @mousedown="startResizeDrag"
-      title="拖动调整输入框高度"
+      @dblclick="pinnedInputHeight = 0; autoResize()"
+      title="上下拖动调整输入框高度 / 双击重置"
     >
-      <GripHorizontal
-        class="w-4 h-3 transition-colors"
-        :class="isDraggingHandle
-          ? 'text-blue-400'
-          : 'text-zinc-300 dark:text-zinc-700 group-hover:text-blue-400'"
-      />
+      <div class="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity"
+           :class="isDraggingHandle ? 'opacity-100' : ''">
+        <div class="h-0.5 w-8 rounded-full"
+             :class="isDraggingHandle ? 'bg-blue-400' : 'bg-zinc-400 dark:bg-zinc-600'" />
+        <GripHorizontal
+          class="w-3.5 h-3.5"
+          :class="isDraggingHandle ? 'text-blue-400' : 'text-zinc-400 dark:text-zinc-600'" />
+        <div class="h-0.5 w-8 rounded-full"
+             :class="isDraggingHandle ? 'bg-blue-400' : 'bg-zinc-400 dark:bg-zinc-600'" />
+      </div>
     </div>
 
     <!-- Attachment chips -->
@@ -441,7 +454,7 @@ function removeInjectedNote(noteId: string) {
             placeholder="在这里输入消息… (Shift+Enter 发送)"
             :disabled="chat.isStreaming"
             class="w-full bg-transparent outline-none resize-none text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed select-text disabled:opacity-50"
-            :style="{ maxHeight: maxInputHeight + 'px' }"
+            :style="{ maxHeight: maxInputHeight + 'px', minHeight: pinnedInputHeight > 0 ? pinnedInputHeight + 'px' : undefined }"
           />
         </div>
         <button

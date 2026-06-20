@@ -103,6 +103,41 @@ export const useSettingsStore = defineStore('settings', () => {
   const picbedConfigured = computed(() => !!picbedUrl.value.trim() && !!picbedToken.value.trim())
   const picbedActive     = computed(() => picbedConfigured.value && picbedPluginEnabled.value)
 
+  // ── 腾讯文档 MCP 插件 ────────────────────────────────────────────────────────
+  const tencentDocsToken         = ref('')
+  const tencentDocsPluginEnabled = ref(true)
+  const isTestingTencentDocs     = ref(false)
+  const tencentDocsTestResult    = ref<'success' | 'fail' | null>(null)
+  const tencentDocsTestError     = ref('')
+  const tencentDocsToolCount     = ref(0)
+
+  const tencentDocsConfigured = computed(() => !!tencentDocsToken.value.trim())
+  const tencentDocsActive     = computed(() => tencentDocsConfigured.value && tencentDocsPluginEnabled.value)
+
+  async function testTencentDocs(): Promise<void> {
+    isTestingTencentDocs.value = true
+    tencentDocsTestResult.value = null
+    tencentDocsTestError.value  = ''
+    try {
+      const res = await window.api.tencentDocs.test(tencentDocsToken.value)
+      if (res.ok) {
+        tencentDocsTestResult.value = 'success'
+        tencentDocsToolCount.value  = res.toolCount ?? 0
+        // Save token first, then reload tools in background
+        await window.api.config.set('tencentDocsToken', tencentDocsToken.value)
+        window.api.tencentDocs.reload().catch(console.warn)
+      } else {
+        tencentDocsTestResult.value = 'fail'
+        tencentDocsTestError.value  = res.error ?? '连接失败'
+      }
+    } catch (e: any) {
+      tencentDocsTestResult.value = 'fail'
+      tencentDocsTestError.value  = e.message ?? '未知错误'
+    } finally {
+      isTestingTencentDocs.value = false
+    }
+  }
+
   // ── Load / Save ───────────────────────────────────────────────────────────
   let _loaded = false
 
@@ -141,6 +176,8 @@ export const useSettingsStore = defineStore('settings', () => {
     embeddingApiKey.value        = (await window.api.config.get('embeddingApiKey')        as string)  ?? ''
     embeddingBaseUrl.value       = (await window.api.config.get('embeddingBaseUrl')       as string)  ?? 'https://api.siliconflow.cn/v1'
     embeddingPluginEnabled.value = (await window.api.config.get('embeddingPluginEnabled') as boolean) ?? true
+    tencentDocsToken.value         = (await window.api.config.get('tencentDocsToken')         as string)  ?? ''
+    tencentDocsPluginEnabled.value = (await window.api.config.get('tencentDocsPluginEnabled') as boolean) ?? true
     const wdStatus = await window.api.webdav.status()
     webdavLastSync.value = wdStatus.lastSyncAt
     _loaded = true
@@ -180,6 +217,8 @@ export const useSettingsStore = defineStore('settings', () => {
     await window.api.config.set('embeddingApiKey',        embeddingApiKey.value)
     await window.api.config.set('embeddingBaseUrl',       embeddingBaseUrl.value)
     await window.api.config.set('embeddingPluginEnabled', embeddingPluginEnabled.value)
+    await window.api.config.set('tencentDocsToken',         tencentDocsToken.value)
+    await window.api.config.set('tencentDocsPluginEnabled', tencentDocsPluginEnabled.value)
   }
 
   async function testApi(): Promise<void> {
@@ -312,7 +351,9 @@ export const useSettingsStore = defineStore('settings', () => {
     isTestingEmbedding, embeddingTestResult, embeddingTestError,
     picbedUrl, picbedToken, picbedPluginEnabled, picbedConfigured, picbedActive,
     isTestingPicbed, picbedTestResult, picbedTestError,
+    tencentDocsToken, tencentDocsPluginEnabled, tencentDocsConfigured, tencentDocsActive,
+    isTestingTencentDocs, tencentDocsTestResult, tencentDocsTestError, tencentDocsToolCount,
     load, save, testApi, testVisionApi, testMemosConnection, runMemosSync,
-    testWebDavConnection, runWebDavSync, testPicbedConnection, testEmbeddingApi
+    testWebDavConnection, runWebDavSync, testPicbedConnection, testEmbeddingApi, testTencentDocs
   }
 })

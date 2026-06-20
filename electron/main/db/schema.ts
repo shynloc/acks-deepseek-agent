@@ -157,6 +157,12 @@ CREATE TABLE IF NOT EXISTS plugins (
   created_at        INTEGER NOT NULL
 );
 
+-- ── Sync tombstones ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS deleted_notes (
+  id         TEXT PRIMARY KEY,
+  deleted_at INTEGER NOT NULL
+);
+
 -- ── Sprint D: User Memory ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_memory (
   id         TEXT PRIMARY KEY,

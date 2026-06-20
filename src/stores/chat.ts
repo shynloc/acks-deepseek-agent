@@ -27,6 +27,7 @@ export interface Message {
   content: string          // full content including hidden 【附件】 context sent to AI
   displayText?: string     // what to show in the bubble (just user's typed text), in-memory only
   attachments?: MessageAttachment[]  // in-memory only, not persisted
+  toolCallRecords?: ToolCallRecord[] // in-memory only, frozen after streaming ends
   tokensUsed: number
   cacheHitTokens?: number  // KV Cache 命中 tokens（省钱）
   cacheMissTokens?: number
@@ -329,6 +330,10 @@ export const useChatStore = defineStore('chat', () => {
         doneMsg.tokensUsed      = finalUsage.completionTokens
         doneMsg.cacheHitTokens  = finalUsage.cacheHitTokens
         doneMsg.cacheMissTokens = finalUsage.cacheMissTokens
+        // Freeze tool call records onto the message so they persist after streaming ends
+        if (currentToolCalls.value.length > 0) {
+          doneMsg.toolCallRecords = [...currentToolCalls.value]
+        }
       }
 
       // Persist assistant message

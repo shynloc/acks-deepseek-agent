@@ -19,7 +19,9 @@ function getConfig() {
   const apiKey   = provider === 'ollama'
     ? (rawKey || 'ollama')
     : (rawKey || (store.get('apiKey') as string | undefined)?.trim() || '')
-  const base     = preset.url.replace(/\/v1\/?$/, '').replace(/\/$/, '') + '/v1'
+  const customBaseUrl = (store.get('embeddingBaseUrl') as string | undefined)?.trim()
+  const baseOrigin    = customBaseUrl || preset.url
+  const base          = baseOrigin.replace(/\/v1\/?$/, '').replace(/\/$/, '') + '/v1'
   return { apiKey, model, base, provider }
 }
 

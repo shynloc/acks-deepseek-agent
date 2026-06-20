@@ -216,10 +216,43 @@
 
         <!-- ── Semantic results ── -->
         <template v-else-if="semanticMode">
-          <div v-if="!semanticResults.length && !semanticSearching" class="flex flex-col items-center justify-center h-64 text-gray-400">
+          <!-- Not searched yet -->
+          <div v-if="!semanticResults.length && !semanticSearching && !semanticSearchDone" class="flex flex-col items-center justify-center h-64 text-gray-400">
             <Sparkles class="w-10 h-10 mb-3 opacity-30" />
             <p class="text-sm">输入问题或关键词，按 Enter 开始 AI 语义搜索</p>
             <p class="text-xs mt-1 opacity-60">跨越关键词障碍，理解文意找到笔记</p>
+          </div>
+          <!-- Searched but no results -->
+          <div v-else-if="!semanticResults.length && !semanticSearching && semanticSearchDone" class="flex flex-col items-center justify-center py-12 text-gray-400 gap-3 px-4">
+            <Sparkles class="w-10 h-10 opacity-30" />
+            <p class="text-sm">没有找到相关笔记</p>
+            <p v-if="!semanticModelHint" class="text-xs opacity-60">可能是笔记尚未建立向量索引，点击「建立索引」后再试</p>
+            <!-- Model hint when Chinese discrimination is poor -->
+            <div v-if="semanticModelHint" class="max-w-sm text-center text-xs leading-relaxed text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+              {{ semanticModelHint }}
+            </div>
+            <div class="flex flex-col items-center gap-2 mt-1">
+              <div class="flex gap-2">
+                <button
+                  class="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  :disabled="semanticBuildingIndex"
+                  @click="buildSemanticIndex(false)"
+                >
+                  <Loader2 v-if="semanticBuildingIndex" class="w-3.5 h-3.5 animate-spin" />
+                  <Sparkles v-else class="w-3.5 h-3.5" />
+                  {{ semanticBuildingIndex ? '索引中…' : '建立索引' }}
+                </button>
+                <button
+                  class="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 transition-colors"
+                  :disabled="semanticBuildingIndex"
+                  @click="buildSemanticIndex(true)"
+                  title="清除全部旧向量，用当前模型重新建立索引（换模型后使用）"
+                >
+                  强制重建
+                </button>
+              </div>
+              <p v-if="semanticIndexProgress" class="text-xs text-purple-500 text-center max-w-xs">{{ semanticIndexProgress }}</p>
+            </div>
           </div>
           <template v-else-if="semanticResults.length">
             <div class="flex items-center gap-2 mb-3">
@@ -416,6 +449,10 @@ const isWideScreen = ref(window.innerWidth >= 1024)
 const semanticMode = ref(false)
 const semanticSearching = ref(false)
 const semanticResults = ref<(Note & { score: number })[]>([])
+const semanticSearchDone = ref(false) // true after at least one search attempt
+const semanticBuildingIndex = ref(false)
+const semanticIndexProgress = ref('')
+const semanticModelHint = ref('')  // shown when model may be unsuitable for Chinese
 
 // ── Editor ────────────────────────────────────────────────────────────────────
 const editorOpen = ref(false)
@@ -635,21 +672,54 @@ async function semanticSearch() {
   const q = searchQuery.value.trim()
   if (!q) return
   semanticSearching.value = true
+  semanticSearchDone.value = false
+  semanticModelHint.value = ''
   try {
     const res = await window.api.semantic.search(q)
     if (!res.success || !res.results?.length) {
       semanticResults.value = []
+      semanticSearchDone.value = true
+      // If the adaptive threshold was very high (>0.72), the model likely has poor
+      // Chinese discrimination — hint about a better model
+      if (res.threshold && res.threshold > 0.68) {
+        semanticModelHint.value = '当前 Embedding 模型对中文语义区分度有限，建议在「个人中心 → 语义搜索」切换为硅基流动（BAAI/bge-m3）以获得更准确的中文搜索结果。'
+      }
       return
     }
-    // Load all notes then match by id and attach score
     const allNotes = await window.api.db.notes.list({}) as Note[]
     const scoreMap = new Map(res.results.map(r => [r.id, r.score]))
     semanticResults.value = allNotes
       .filter((n: Note) => scoreMap.has(n.id))
       .map((n: Note) => ({ ...n, score: scoreMap.get(n.id)! }))
       .sort((a, b) => b.score - a.score)
+    semanticSearchDone.value = true
   } finally {
     semanticSearching.value = false
+  }
+}
+
+async function buildSemanticIndex(force = false) {
+  semanticBuildingIndex.value = true
+  semanticIndexProgress.value = force ? '清除旧索引并重建中…' : '建立索引中…'
+  try {
+    const res = await window.api.semantic.embedAll({ force })
+    if (res.success) {
+      const total   = res.total   ?? 0
+      const done    = res.done    ?? 0
+      const already = res.alreadyEmbedded ?? 0
+      if (done === 0 && already === total && total > 0) {
+        semanticIndexProgress.value = `所有 ${total} 篇笔记均已建立索引（如需换模型请点「强制重建」）`
+      } else if (done === 0 && total === 0) {
+        semanticIndexProgress.value = '暂无笔记可建立索引'
+      } else {
+        semanticIndexProgress.value = `索引完成：${done + already}/${total} 篇（新增 ${done} 篇）`
+      }
+    } else {
+      semanticIndexProgress.value = `索引失败：${res.error ?? '未知错误'}`
+    }
+    if (searchQuery.value.trim()) await semanticSearch()
+  } finally {
+    semanticBuildingIndex.value = false
   }
 }
 
@@ -657,6 +727,9 @@ function toggleSemanticMode() {
   semanticMode.value = !semanticMode.value
   if (!semanticMode.value) {
     semanticResults.value = []
+    semanticSearchDone.value = false
+    semanticIndexProgress.value = ''
+    semanticModelHint.value = ''
     loadNotes()
   }
 }

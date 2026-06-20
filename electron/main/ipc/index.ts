@@ -7,6 +7,7 @@ import { getDatabase } from '../db'
 import { testConnection, syncMemos } from '../sync/memos'
 import { testWebDav, syncNotes as webdavSyncNotes } from '../sync/webdav'
 import { embedText, cosineSimilarity, getEmbeddingModel, testEmbedding } from '../services/embedding'
+import { initTencentDocsPlugin, reloadTencentDocsPlugin, testTencentDocsToken } from '../tools/builtin/tencent-docs'
 
 const store = new Store()
 
@@ -208,9 +209,13 @@ export function registerIpcHandlers(): void {
     return { id: row.id, noteId: row.note_id, title: row.title, content: row.content, savedAt: row.saved_at }
   })
 
-  ipcMain.handle('db:notes:delete', (_, id: string) =>
-    getDatabase().prepare('DELETE FROM notes WHERE id = ?').run(id)
-  )
+  ipcMain.handle('db:notes:delete', (_, id: string) => {
+    const db  = getDatabase()
+    const now = Date.now()
+    db.prepare('DELETE FROM notes WHERE id = ?').run(id)
+    // Tombstone — prevents WebDAV sync from re-pulling this note
+    db.prepare('INSERT OR REPLACE INTO deleted_notes (id, deleted_at) VALUES (?, ?)').run(id, now)
+  })
 
   ipcMain.handle('db:notes:setTags', (_, noteId: string, tagIds: string[]) => {
     const db = getDatabase()
@@ -599,8 +604,9 @@ ${memText}`
       const raw = (data.choices?.[0]?.message?.content || '').trim()
       console.log('[consolidate] raw response length:', raw.length, 'preview:', raw.slice(0, 100))
       if (!raw) return { success: false, error: 'AI 返回了空响应，请重试' }
-      // Strip markdown code fences if model wrapped the JSON
-      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+      // Strip markdown code fences if model wrapped the JSON (handles preamble text before the fence)
+      const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+      const jsonStr = (fenceMatch ? fenceMatch[1] : raw).trim()
       let result: any
       try {
         result = JSON.parse(jsonStr)
@@ -611,7 +617,7 @@ ${memText}`
 
       const { randomUUID } = await import('crypto')
       const now2 = Date.now()
-      let merged = 0, updated = 0, deleted = 0
+      let merged = 0, mergeGroups = 0, updated = 0, deleted = 0
 
       const tx = db.transaction(() => {
         // 1. Merge groups: insert new combined memory, delete originals
@@ -625,6 +631,7 @@ ${memText}`
             db.prepare('DELETE FROM memories WHERE id = ?').run(id)
           }
           merged += group.ids.length
+          mergeGroups++
         }
         // 2. Update individual entries
         for (const item of (result.update ?? [])) {
@@ -645,8 +652,8 @@ ${memText}`
       })
       tx()
 
-      const kept = allMems.length - merged - deleted
-      return { success: true, kept, deleted: merged + deleted, merged: Math.floor(merged / 2) }
+      const kept = allMems.length - merged - deleted + mergeGroups
+      return { success: true, kept, deleted: merged + deleted, merged: mergeGroups }
     } catch (e: any) {
       return { success: false, error: e?.message ?? String(e) }
     }
@@ -917,9 +924,16 @@ ${memText}`
     }
   })
 
-  ipcMain.handle('semantic:embed:all', async () => {
+  ipcMain.handle('semantic:embed:all', async (_, opts: { force?: boolean } = {}) => {
     try {
-      const db    = getDatabase()
+      const db       = getDatabase()
+      const totalAll = (db.prepare('SELECT COUNT(*) as c FROM notes').get() as any).c as number
+
+      if (opts.force) {
+        // Clear existing embeddings so they're all re-indexed with the current model
+        db.prepare('UPDATE notes SET embedding = NULL, embedding_model = NULL').run()
+      }
+
       const notes = db.prepare('SELECT id, title, content FROM notes WHERE embedding IS NULL').all() as any[]
       let done = 0
       for (const note of notes) {
@@ -930,7 +944,8 @@ ${memText}`
           done++
         }
       }
-      return { success: true, done, total: notes.length }
+      const alreadyEmbedded = totalAll - notes.length
+      return { success: true, done, total: totalAll, alreadyEmbedded }
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -942,7 +957,7 @@ ${memText}`
       const queryVec = await embedText(query)
       if (!queryVec) return { success: false, error: '向量化失败，请检查 API Key 及 Embedding 模型配置' }
       const rows = db.prepare('SELECT id, embedding FROM notes WHERE embedding IS NOT NULL').all() as any[]
-      const scored = rows
+      const allScored = rows
         .map((row: any) => {
           try {
             const vec   = JSON.parse(row.embedding) as number[]
@@ -950,9 +965,27 @@ ${memText}`
             return { id: row.id as string, score }
           } catch { return { id: row.id as string, score: 0 } }
         })
-        .filter((r: any) => r.score > 0.3)
         .sort((a: any, b: any) => b.score - a.score)
-        .slice(0, 20)
+
+      // Gap-detection threshold: find the first significant score drop in the ranked list.
+      // This handles both high-noise English models (scores clustered 0.60-0.72, no gap → 0 results)
+      // and high-quality Chinese models (one note at 0.85, rest at 0.50 → gap at index 1 → return it).
+      // GAP_MIN: minimum score drop to consider a "real" boundary; FLOOR: absolute minimum score.
+      const GAP_MIN  = 0.08
+      const FLOOR    = 0.50
+      const MAX_RESULTS = 8
+
+      let cutoffIdx = allScored.length // default: nothing passes
+      for (let i = 0; i < allScored.length - 1; i++) {
+        const gap = allScored[i].score - allScored[i + 1].score
+        if (gap >= GAP_MIN) { cutoffIdx = i + 1; break }
+      }
+
+      const scored = allScored
+        .slice(0, cutoffIdx)
+        .filter((r: any) => r.score >= FLOOR)
+        .slice(0, MAX_RESULTS)
+
       return { success: true, results: scored as { id: string; score: number }[] }
     } catch (e: any) {
       return { success: false, error: e.message }
@@ -965,6 +998,20 @@ ${memText}`
     const embedded = (db.prepare('SELECT COUNT(*) as c FROM notes WHERE embedding IS NOT NULL').get() as any).c as number
     return { total, embedded }
   })
+
+  // ── 腾讯文档 MCP 插件 ────────────────────────────────────────────────────────
+  ipcMain.handle('tencentdocs:test', (_: any, token: string) =>
+    testTencentDocsToken(token)
+  )
+
+  ipcMain.handle('tencentdocs:reload', () =>
+    reloadTencentDocsPlugin()
+  )
+
+  // Fire-and-forget init on startup so tools are ready before first agent call
+  initTencentDocsPlugin().catch((e: any) =>
+    console.warn('[tencent-docs] startup init skipped:', e?.message)
+  )
 }
 
 function attachTags(db: any, notes: any[]): any[] {

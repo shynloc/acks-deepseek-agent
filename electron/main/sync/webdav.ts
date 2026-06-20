@@ -70,20 +70,37 @@ export async function testWebDav(config: WebDavConfig): Promise<{ ok: boolean; e
 export async function syncNotes(db: Database.Database, config: WebDavConfig): Promise<WebDavSyncResult> {
   try {
     // 1. Download remote state
-    const remote = await getJson(config, SYNC_PATH) as { notes?: any[] } | null
+    const remote = await getJson(config, SYNC_PATH) as { notes?: any[]; deletedIds?: string[] } | null
     const remoteMap = new Map<string, any>()
     for (const rn of remote?.notes ?? []) remoteMap.set(rn.id, rn)
+    const remoteDeletedIds: Set<string> = new Set(remote?.deletedIds ?? [])
 
-    // 2. Load local notes
+    // 2. Load local notes and tombstones
     const localNotes = db.prepare(`
       SELECT id, title, content, category_id, color, visibility, created_at, updated_at
       FROM notes
     `).all() as any[]
     const localMap = new Map(localNotes.map((n: any) => [n.id, n]))
 
-    // 3. Pull: merge remote changes into local
+    const localDeletedIds = new Set(
+      (db.prepare('SELECT id FROM deleted_notes').all() as { id: string }[]).map(r => r.id)
+    )
+
+    // 3a. Apply remote deletions locally
+    for (const rid of remoteDeletedIds) {
+      if (localMap.has(rid)) {
+        db.prepare('DELETE FROM notes WHERE id = ?').run(rid)
+        localMap.delete(rid)
+      }
+      // Record tombstone so we don't re-pull it
+      db.prepare('INSERT OR REPLACE INTO deleted_notes (id, deleted_at) VALUES (?, ?)').run(rid, Date.now())
+      localDeletedIds.add(rid)
+    }
+
+    // 3b. Pull: merge remote changes into local (skip locally deleted notes)
     let pulled = 0
     for (const [id, rn] of remoteMap) {
+      if (localDeletedIds.has(id)) continue // this device deleted it — skip
       const ln = localMap.get(id)
       if (!ln) {
         // New note from remote — create locally (FTS trigger fires automatically)
@@ -112,12 +129,13 @@ export async function syncNotes(db: Database.Database, config: WebDavConfig): Pr
 
     const pushed = allNotes.length
 
-    // 5. Upload merged snapshot
+    // 5. Upload merged snapshot (include tombstone IDs so other devices delete too)
     await ensureDir(config, '/DeepSeekNotes')
     await putJson(config, SYNC_PATH, {
-      version: 1,
-      syncedAt: Date.now(),
-      notes: allNotes
+      version:    1,
+      syncedAt:   Date.now(),
+      notes:      allNotes,
+      deletedIds: [...localDeletedIds],
     })
 
     // 6. Record sync time

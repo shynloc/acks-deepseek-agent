@@ -24,6 +24,7 @@ const visionExpanded      = ref(false)
 const memosExpanded       = ref(false)
 const picbedExpanded      = ref(false)
 const embeddingExpanded   = ref(false)
+const tencentDocsExpanded = ref(false)
 
 const EMBEDDING_PROVIDERS = [
   { id: 'siliconflow', name: '硅基流动', badge: '免费·推荐', model: 'BAAI/bge-m3',          needKey: true  },
@@ -32,11 +33,24 @@ const EMBEDDING_PROVIDERS = [
   { id: 'ollama',      name: 'Ollama',   badge: '本地·免费',  model: 'nomic-embed-text',       needKey: false },
 ] as const
 
+// Quick-select chips shown when Ollama is the active provider
+const OLLAMA_MODELS = [
+  { model: 'nomic-embed-text', label: 'nomic-embed-text', desc: '英文·轻量' },
+  { model: 'mxbai-embed-large', label: 'mxbai-embed-large', desc: '多语言' },
+  { model: 'bge-m3',            label: 'bge-m3',            desc: '中文优化' },
+  { model: 'gemma3',            label: 'gemma3',            desc: 'Google Gemma' },
+]
+
 type EmbeddingProviderId = typeof EMBEDDING_PROVIDERS[number]['id']
 
 function selectEmbeddingProvider(p: { id: EmbeddingProviderId; model: string }) {
   settings.embeddingProvider = p.id
   settings.embeddingModel    = p.model
+  settings.save()
+}
+
+function selectOllamaModel(model: string) {
+  settings.embeddingModel = model
   settings.save()
 }
 const skillsStore   = useSkillsStore()
@@ -562,6 +576,10 @@ async function importMarkdown() {
             <div class="flex justify-between text-xs text-gray-400 mt-0.5 px-0.5">
               <span>精确 0</span><span>均衡 1（推荐）</span><span>创意 2</span>
             </div>
+            <p v-if="settings.temperature > 1.2" class="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+              <span>⚠️</span>
+              <span>当前温度较高，AI 输出随机性增加。事实性问答建议调至 0.3–0.7</span>
+            </p>
           </div>
 
           <!-- Base URL -->
@@ -596,7 +614,7 @@ async function importMarkdown() {
             <Puzzle class="w-4 h-4 text-blue-500" />
             <h2 class="text-base font-semibold">内置插件</h2>
           </div>
-          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive, settings.embeddingActive].filter(Boolean).length }}/5 已激活</span>
+          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive, settings.embeddingActive, settings.tencentDocsActive].filter(Boolean).length }}/6 已激活</span>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
           官方内置的能力扩展，可独立开关，不影响其他功能。
@@ -1022,23 +1040,62 @@ async function importMarkdown() {
                 <p v-else-if="settings.embeddingTestResult === 'fail'" class="text-[11px] text-red-500 mt-1">✗ {{ settings.embeddingTestError }}</p>
               </div>
 
-              <!-- Ollama hint -->
-              <div v-else class="flex items-center gap-2">
-                <button
-                  @click="settings.testEmbeddingApi()"
-                  :disabled="settings.isTestingEmbedding"
-                  class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
-                >
-                  <Loader v-if="settings.isTestingEmbedding" class="w-3 h-3 animate-spin" />
-                  <CheckCircle v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
-                  <XCircle    v-else-if="settings.embeddingTestResult === 'fail'"    class="w-3 h-3 text-red-500" />
-                  测试 Ollama 连接
-                </button>
-                <span class="text-[11px] text-gray-400">需先运行 <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded font-mono">ollama pull nomic-embed-text</code></span>
+              <!-- Ollama: model quick-select + test + pull hint -->
+              <div v-else class="space-y-2">
+                <!-- Model chips -->
+                <div>
+                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1.5">选择模型</label>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="m in OLLAMA_MODELS"
+                      :key="m.model"
+                      @click="selectOllamaModel(m.model)"
+                      class="flex flex-col items-start px-2.5 py-1.5 rounded-lg border text-[11px] transition-all"
+                      :class="settings.embeddingModel === m.model
+                        ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'"
+                    >
+                      <span class="font-mono font-semibold">{{ m.label }}</span>
+                      <span class="text-gray-400 dark:text-gray-500">{{ m.desc }}</span>
+                    </button>
+                  </div>
+                </div>
+                <!-- Custom model name -->
+                <div>
+                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">或手动输入模型名</label>
+                  <input
+                    v-model="settings.embeddingModel"
+                    type="text"
+                    placeholder="例如：gemma3、nomic-embed-text"
+                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    @blur="settings.save()"
+                  />
+                </div>
+                <!-- Test + pull hint -->
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    @click="settings.testEmbeddingApi()"
+                    :disabled="settings.isTestingEmbedding"
+                    class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
+                  >
+                    <Loader       v-if="settings.isTestingEmbedding"                class="w-3 h-3 animate-spin" />
+                    <CheckCircle  v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
+                    <XCircle      v-else-if="settings.embeddingTestResult === 'fail'"    class="w-3 h-3 text-red-500" />
+                    测试 Ollama 连接
+                  </button>
+                  <span class="text-[11px] text-gray-400">
+                    需先运行
+                    <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded font-mono">
+                      ollama pull {{ settings.embeddingModel || 'nomic-embed-text' }}
+                    </code>
+                  </span>
+                </div>
+                <p v-if="settings.embeddingTestResult === 'success'" class="text-[11px] text-emerald-500">✓ 连接成功，向量模型可用</p>
+                <p v-else-if="settings.embeddingTestResult === 'fail'" class="text-[11px] text-red-500">✗ {{ settings.embeddingTestError }}</p>
               </div>
 
-              <!-- Model override -->
-              <div>
+              <!-- Model override (non-Ollama providers) -->
+              <div v-if="settings.embeddingProvider !== 'ollama'">
                 <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">模型名称</label>
                 <input
                   v-model="settings.embeddingModel"
@@ -1047,6 +1104,92 @@ async function importMarkdown() {
                   class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   @blur="settings.save()"
                 />
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 腾讯文档 ── -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+              <span class="text-xl shrink-0">📝</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">腾讯文档</span>
+                  <span class="text-xs text-gray-400">docs.qq.com MCP</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    :class="settings.tencentDocsActive
+                      ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400'
+                      : settings.tencentDocsConfigured
+                        ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                  >{{ settings.tencentDocsActive ? '已激活' : settings.tencentDocsConfigured ? '已配置·已关闭' : '未配置' }}</span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-0.5">创建/编辑/管理腾讯文档、Excel、PPT、思维导图等云文档</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  @click="settings.tencentDocsPluginEnabled = !settings.tencentDocsPluginEnabled; settings.save()"
+                  :disabled="!settings.tencentDocsConfigured"
+                  class="transition-colors disabled:opacity-40"
+                  :class="settings.tencentDocsActive ? 'text-cyan-500 hover:text-cyan-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :title="settings.tencentDocsConfigured ? (settings.tencentDocsPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 Token'"
+                >
+                  <ToggleRight v-if="settings.tencentDocsActive" class="w-6 h-6" />
+                  <ToggleLeft  v-else                             class="w-6 h-6" />
+                </button>
+                <button
+                  @click="tencentDocsExpanded = !tencentDocsExpanded"
+                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <ChevronDown class="w-4 h-4 transition-transform" :class="tencentDocsExpanded ? 'rotate-180' : ''" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 展开配置区 -->
+            <div v-if="tencentDocsExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+              <div>
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">腾讯文档 Token</label>
+                <input
+                  v-model="settings.tencentDocsToken"
+                  type="password"
+                  placeholder="32 位十六进制 Token，从腾讯文档授权页获取"
+                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  @blur="settings.save()"
+                />
+                <p class="text-[11px] text-gray-400 mt-1">
+                  前往
+                  <a
+                    href="https://docs.qq.com/scenario/open-claw.html?nlc=1"
+                    target="_blank"
+                    class="text-cyan-500 hover:underline"
+                    @click.prevent="window.api.shell.openExternal('https://docs.qq.com/scenario/open-claw.html?nlc=1')"
+                  >腾讯文档授权页</a>
+                  获取 Token（登录后页面自动显示）
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="settings.testTencentDocs()"
+                  :disabled="settings.isTestingTencentDocs || !settings.tencentDocsToken"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                >
+                  <span v-if="settings.isTestingTencentDocs" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                  {{ settings.isTestingTencentDocs ? '连接中…' : '测试并启用' }}
+                </button>
+                <span v-if="settings.tencentDocsTestResult === 'success'" class="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle class="w-3.5 h-3.5" /> 已接入 {{ settings.tencentDocsToolCount }} 个工具
+                </span>
+                <span v-else-if="settings.tencentDocsTestResult === 'fail'" class="text-xs text-red-500 flex items-center gap-1">
+                  <XCircle class="w-3.5 h-3.5" /> {{ settings.tencentDocsTestError }}
+                </span>
+              </div>
+              <div v-if="settings.tencentDocsActive" class="text-[11px] text-gray-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-100 dark:border-cyan-800 rounded-lg px-3 py-2">
+                ✅ 腾讯文档工具已接入 AI Chat。可在对话中说「帮我创建一个腾讯文档」或「把这段内容保存到腾讯文档」来使用。
+              </div>
+              <div class="text-[11px] text-gray-400">
+                支持：文档 / Excel / PPT / 思维导图 / 流程图 / 智能表格 / 网页剪藏 / OCR 图片识别
               </div>
             </div>
           </div>

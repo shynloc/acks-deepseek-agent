@@ -92,11 +92,17 @@ const api = {
   embedding: {
     test: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('embedding:test'),
   },
+  tencentDocs: {
+    test:   (token: string): Promise<{ ok: boolean; toolCount?: number; error?: string }> =>
+      ipcRenderer.invoke('tencentdocs:test', token),
+    reload: (): Promise<{ ok: boolean; toolCount?: number; error?: string }> =>
+      ipcRenderer.invoke('tencentdocs:reload'),
+  },
   semantic: {
     embed:    (noteId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('semantic:embed', noteId),
-    embedAll: (): Promise<{ success: boolean; done?: number; total?: number; error?: string }> =>
-      ipcRenderer.invoke('semantic:embed:all'),
+    embedAll: (opts?: { force?: boolean }): Promise<{ success: boolean; done?: number; total?: number; alreadyEmbedded?: number; error?: string }> =>
+      ipcRenderer.invoke('semantic:embed:all', opts ?? {}),
     search:   (query: string): Promise<{ success: boolean; results?: { id: string; score: number }[]; error?: string }> =>
       ipcRenderer.invoke('semantic:search', query),
     status:   (): Promise<{ total: number; embedded: number }> =>
@@ -143,6 +149,14 @@ const api = {
       const h = (_: Electron.IpcRendererEvent, m: string) => fn(m)
       ipcRenderer.on('agent:error', h)
       return () => ipcRenderer.removeListener('agent:error', h)
+    },
+    onConfirmRequest: (fn: (req: { reqId: string; name: string; args: Record<string, unknown> }) => void): (() => void) => {
+      const h = (_: Electron.IpcRendererEvent, req: any) => fn(req)
+      ipcRenderer.on('agent:confirm-request', h)
+      return () => ipcRenderer.removeListener('agent:confirm-request', h)
+    },
+    confirmResponse: (reqId: string, confirmed: boolean): void => {
+      ipcRenderer.send(`agent:confirm-response:${reqId}`, confirmed)
     }
   },
   memos: {

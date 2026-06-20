@@ -40,12 +40,27 @@ const toolLabels: Record<string, string> = {
   list_notes:   '列出笔记',
   create_note:  '创建笔记',
   update_note:  '更新笔记',
+  delete_note:  '删除笔记',
   web_search:   '联网搜索',
   get_datetime: '获取时间',
-  get_stats:    '统计数据'
+  get_stats:    '统计数据',
+  save_memory:  '保存记忆',
+  recall_memories: '回忆记忆',
+  delete_memory: '删除记忆'
 }
 
-function label(name: string) { return toolLabels[name] ?? name }
+function label(name: string): string {
+  if (toolLabels[name]) return toolLabels[name]
+  // Tencent Docs tools: tdoc__xxx or slide__xxx
+  if (name.startsWith('tdoc__'))  return '腾讯文档：' + name.slice(6).replace(/__/g, '.')
+  if (name.startsWith('slide__')) return '腾讯幻灯：' + name.slice(7).replace(/__/g, '.')
+  return name
+}
+
+function isCancelled(rec: ToolCallRecord): boolean {
+  if (!rec.result) return false
+  try { return JSON.parse(rec.result)?.cancelled === true } catch { return false }
+}
 
 const summary = computed(() => {
   const done  = props.records.filter(r => r.status === 'done').length
@@ -69,9 +84,10 @@ const summary = computed(() => {
       :key="rec.callId"
       class="rounded-xl border text-xs overflow-hidden transition-all"
       :class="{
-        'border-blue-200  dark:border-blue-800  bg-blue-50  dark:bg-blue-900/20':  rec.status === 'calling',
-        'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20': rec.status === 'done',
-        'border-red-200   dark:border-red-800   bg-red-50   dark:bg-red-900/20':   rec.status === 'error'
+        'border-blue-200  dark:border-blue-800  bg-blue-50  dark:bg-blue-900/20':   rec.status === 'calling',
+        'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20':  rec.status === 'done' && !isCancelled(rec),
+        'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20':  rec.status === 'done' && isCancelled(rec),
+        'border-red-200   dark:border-red-800   bg-red-50   dark:bg-red-900/20':    rec.status === 'error'
       }"
     >
       <!-- Header row -->
@@ -82,6 +98,7 @@ const summary = computed(() => {
         <!-- Status indicator -->
         <span class="flex-none">
           <span v-if="rec.status === 'calling'" class="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <span v-else-if="rec.status === 'done' && isCancelled(rec)">🚫</span>
           <span v-else-if="rec.status === 'done'">✅</span>
           <span v-else>❌</span>
         </span>
