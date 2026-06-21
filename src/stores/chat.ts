@@ -27,7 +27,7 @@ export interface Message {
   content: string          // full content including hidden 【附件】 context sent to AI
   displayText?: string     // what to show in the bubble (just user's typed text), in-memory only
   attachments?: MessageAttachment[]  // in-memory only, not persisted
-  toolCallRecords?: ToolCallRecord[] // in-memory only, frozen after streaming ends
+  toolCallRecords?: ToolCallRecord[] // persisted to DB via metadata column
   tokensUsed: number
   cacheHitTokens?: number  // KV Cache 命中 tokens（省钱）
   cacheMissTokens?: number
@@ -336,10 +336,10 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
 
-      // Persist assistant message
-      const finalContent = messages.value.find(m => m.id === assistantMsg.id)?.content ?? ''
-      if (finalContent) {
-        await window.api.db.messages.create(convId!, { ...assistantMsg, content: finalContent })
+      // Persist assistant message (use doneMsg so toolCallRecords are included)
+      const savedMsg = messages.value.find(m => m.id === assistantMsg.id)
+      if (savedMsg?.content) {
+        await window.api.db.messages.create(convId!, savedMsg)
       }
 
       // Update conversation timestamp

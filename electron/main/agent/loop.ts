@@ -34,7 +34,8 @@ export interface AgentCallbacks {
 }
 
 // Action-intent keywords: if any appear in the user message, the model MUST call a tool
-const ACTION_KEYWORDS = ['帮我', '帮你', '请帮', '帮忙', '搜索', '查找', '查一下', '创建', '新建', '保存', '生成', '写', '整理', '删除', '修改', '更新']
+// Removed single-char '写' (false-positives on 改写/描写), '帮你' (model says this, not user), '整理' (too ambiguous)
+const ACTION_KEYWORDS = ['帮我', '请帮', '帮忙', '搜索', '查找', '查一下', '创建', '新建', '保存', '生成', '删除', '修改', '更新']
 
 function hasActionIntent(messages: ChatMessage[]): boolean {
   const lastUser = [...messages].reverse().find(m => m.role === 'user')
@@ -77,8 +78,8 @@ export async function runAgentLoop(
     const toolChoice = (iter === 0 && toolsDef.length > 0 && hasActionIntent(messages)) ? 'required' : 'auto'
     // Thinking mode does not support temperature/presence_penalty/frequency_penalty
     const requestBody = {
-      model, messages, tools: toolsDef,
-      tool_choice: toolsDef.length > 0 ? toolChoice : 'none',
+      model, messages,
+      ...(toolsDef.length > 0 ? { tools: toolsDef, tool_choice: toolChoice } : {}),
       max_tokens: maxTokens,
       ...(thinkingEnabled ? {} : { temperature }),
       ...thinkingParams
@@ -202,6 +203,9 @@ export async function runAgentLoop(
 
       const warningNote = decision.action === 'warn' ? `\n[注意] ${decision.message}` : ''
 
+      // Emit onToolCall first so the UI record exists before we await confirmation
+      callbacks.onToolCall(tc.function.name, args, tc.id)
+
       // Confirm before executing irreversible operations
       if (CONFIRM_REQUIRED.has(tc.function.name) && callbacks.onConfirmNeeded) {
         const confirmed = await callbacks.onConfirmNeeded(tc.function.name, args)
@@ -212,8 +216,6 @@ export async function runAgentLoop(
           continue
         }
       }
-
-      callbacks.onToolCall(tc.function.name, args, tc.id)
 
       const tool   = toolRegistry.get(tc.function.name)
       let result   = ''

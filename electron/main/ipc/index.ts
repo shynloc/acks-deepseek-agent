@@ -61,15 +61,29 @@ export function registerIpcHandlers(): void {
   )
 
   // ── Messages ─────────────────────────────────────────────────────────────
-  ipcMain.handle('db:messages:list', (_, conversationId: string) =>
-    ccAll(getDatabase().prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(conversationId) as any[])
-  )
+  ipcMain.handle('db:messages:list', (_, conversationId: string) => {
+    const rows = getDatabase().prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(conversationId) as any[]
+    return ccAll(rows).map((m: any) => {
+      if (m.metadata) {
+        try {
+          const meta = JSON.parse(m.metadata as string)
+          if (Array.isArray(meta.toolCallRecords)) m.toolCallRecords = meta.toolCallRecords
+        } catch {}
+        delete m.metadata
+      }
+      return m
+    })
+  })
 
   ipcMain.handle('db:messages:create', (_, conversationId: string, m: any) => {
     getDatabase().prepare(`
-      INSERT INTO messages (id, conversation_id, role, content, tokens_used, created_at)
-      VALUES (@id, @conversationId, @role, @content, @tokensUsed, @createdAt)
-    `).run({ id: m.id, conversationId, role: m.role, content: m.content, tokensUsed: m.tokensUsed ?? 0, createdAt: m.createdAt })
+      INSERT INTO messages (id, conversation_id, role, content, tokens_used, created_at, metadata)
+      VALUES (@id, @conversationId, @role, @content, @tokensUsed, @createdAt, @metadata)
+    `).run({
+      id: m.id, conversationId, role: m.role, content: m.content,
+      tokensUsed: m.tokensUsed ?? 0, createdAt: m.createdAt,
+      metadata: m.toolCallRecords?.length ? JSON.stringify({ toolCallRecords: m.toolCallRecords }) : null
+    })
   })
 
   // ── Categories ────────────────────────────────────────────────────────────
@@ -212,9 +226,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('db:notes:delete', (_, id: string) => {
     const db  = getDatabase()
     const now = Date.now()
-    db.prepare('DELETE FROM notes WHERE id = ?').run(id)
-    // Tombstone — prevents WebDAV sync from re-pulling this note
-    db.prepare('INSERT OR REPLACE INTO deleted_notes (id, deleted_at) VALUES (?, ?)').run(id, now)
+    db.transaction(() => {
+      db.prepare('DELETE FROM notes WHERE id = ?').run(id)
+      db.prepare('INSERT OR REPLACE INTO deleted_notes (id, deleted_at) VALUES (?, ?)').run(id, now)
+    })()
   })
 
   ipcMain.handle('db:notes:setTags', (_, noteId: string, tagIds: string[]) => {

@@ -32,7 +32,7 @@ async function buildRagContext(db: Database, message: string): Promise<string> {
   const MAX = 3
 
   const rows = (db as any).prepare(
-    `SELECT id, title, content, embedding FROM notes WHERE embedding IS NOT NULL LIMIT 300`
+    `SELECT id, title, content, embedding FROM notes WHERE embedding IS NOT NULL`
   ).all() as { id: string; title: string; content: string; embedding: string }[]
 
   const scored = rows
@@ -82,13 +82,13 @@ export function registerAgentIpc(_win: BrowserWindow): void {
     const ctx = { db: getDatabase(), store }
     loadPluginsFromDb(ctx)   // register any enabled user plugins at run time
 
-    // RAG: inject top-K relevant notes as context before the user message
+    // RAG: merge relevant notes into the system message (must stay first)
     const ragBlock = await buildRagContext(ctx.db as Database, message).catch(() => '')
+    const systemWithRag = ragBlock ? `${systemContent}\n\n${ragBlock}` : systemContent
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: systemContent },
+      { role: 'system', content: systemWithRag },
       ...history,
-      ...(ragBlock ? [{ role: 'system' as const, content: ragBlock }] : []),
       { role: 'user',   content: message }
     ]
 
@@ -101,15 +101,33 @@ export function registerAgentIpc(_win: BrowserWindow): void {
       onConfirmNeeded: (name, args) => new Promise<boolean>(resolve => {
         const reqId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
         const responseChannel = `agent:confirm-response:${reqId}`
+
+        const onResponse = (_e: any, confirmed: boolean) => {
+          clearTimeout(timer)
+          event.sender.off('destroyed', onDestroyed)
+          resolve(confirmed)
+        }
+        const onDestroyed = () => {
+          clearTimeout(timer)
+          ipcMain.removeListener(responseChannel, onResponse)
+          resolve(false)
+        }
+        ipcMain.once(responseChannel, onResponse)
+        event.sender.once('destroyed', onDestroyed)
+
         const timer = setTimeout(() => {
-          ipcMain.removeAllListeners(responseChannel)
+          ipcMain.removeListener(responseChannel, onResponse)
+          event.sender.off('destroyed', onDestroyed)
           resolve(false)  // timeout → cancel
         }, 60_000)
-        ipcMain.once(responseChannel, (_e, confirmed: boolean) => {
+
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('agent:confirm-request', { reqId, name, args })
+        } else {
           clearTimeout(timer)
-          resolve(confirmed)
-        })
-        event.sender.send('agent:confirm-request', { reqId, name, args })
+          ipcMain.removeListener(responseChannel, onResponse)
+          resolve(false)
+        }
       }),
       signal: ac.signal
     })

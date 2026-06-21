@@ -6,10 +6,6 @@ const IDEMPOTENT_TOOLS = new Set([
   'get_datetime', 'get_stats', 'web_search'
 ])
 
-// Tools that are irreversible and must be confirmed by user before execution
-const CONFIRM_REQUIRED_TOOLS = new Set([
-  'delete_note', 'delete_memory', 'delete_conversation',
-])
 
 const CFG = {
   exactFailWarn:  2,

@@ -6,10 +6,24 @@ import GlobalSearch from '@/components/GlobalSearch.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
 import OnboardingModal from '@/components/OnboardingModal.vue'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
+import { Trash2 } from '@lucide/vue'
 import { useUIStore } from '@/stores/ui'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
+
+// ── Global destructive action confirmation dialog ──────────────────────────────
+// Lives here (not AIChat.vue) so it remains visible during cross-page navigation
+const confirmDialog = ref<{ reqId: string; name: string; args: Record<string, unknown> } | null>(null)
+let offConfirm: (() => void) | null = null
+const CONFIRM_LABELS: Record<string, string> = {
+  delete_note: '删除笔记', delete_memory: '删除记忆', delete_conversation: '删除对话'
+}
+function onConfirm(confirmed: boolean) {
+  if (!confirmDialog.value) return
+  window.api.agent.confirmResponse(confirmDialog.value.reqId, confirmed)
+  confirmDialog.value = null
+}
 
 const uiStore = useUIStore()
 const chatStore = useChatStore()
@@ -93,6 +107,8 @@ onMounted(async () => {
   await uiStore.loadTheme()
   await settings.load()
 
+  offConfirm = window.api.agent.onConfirmRequest(req => { confirmDialog.value = req })
+
   removeTrayListeners.push(
     window.api.tray.onNewChat(() => {
       router.push('/')
@@ -116,6 +132,7 @@ async function dismissOnboarding() {
 }
 
 onUnmounted(() => {
+  offConfirm?.()
   window.removeEventListener('keydown', onKeydown)
   removeTrayListeners.forEach(fn => fn())
 })
@@ -135,6 +152,35 @@ onUnmounted(() => {
     <OnboardingModal v-if="showOnboarding" @done="dismissOnboarding" />
     <KeyboardShortcutsModal v-if="showKeyboardShortcuts" @close="showKeyboardShortcuts = false" />
     <ToastContainer />
+
+    <!-- Destructive action confirmation dialog (global — survives page navigation) -->
+    <Transition name="modal">
+      <div v-if="confirmDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 p-6 mx-4 max-w-sm w-full">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+              <Trash2 class="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+              <p class="font-semibold text-zinc-800 dark:text-zinc-100">确认执行</p>
+              <p class="text-xs text-zinc-500">{{ CONFIRM_LABELS[confirmDialog.name] ?? confirmDialog.name }}</p>
+            </div>
+          </div>
+          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-1">AI 即将执行以下不可撤销的操作：</p>
+          <pre class="text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3 mb-4 overflow-x-auto max-h-28">{{ JSON.stringify(confirmDialog.args, null, 2) }}</pre>
+          <div class="flex gap-2 justify-end">
+            <button
+              class="px-4 py-2 rounded-xl text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              @click="onConfirm(false)"
+            >取消</button>
+            <button
+              class="px-4 py-2 rounded-xl text-sm bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
+              @click="onConfirm(true)"
+            >确认执行</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -151,4 +197,8 @@ onUnmounted(() => {
   opacity: 0;
   transform: translateY(-4px);
 }
+
+.modal-enter-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.modal-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.97); }
 </style>

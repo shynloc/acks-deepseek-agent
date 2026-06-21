@@ -59,18 +59,6 @@ async function handleFileDrop(e: DragEvent) {
 // ── Save note dialog ───────────────────────────────────────────────────────
 const savingMessage = ref<Message | null>(null)
 
-// ── Destructive action confirmation dialog ─────────────────────────────────
-const confirmDialog = ref<{ reqId: string; name: string; args: Record<string, unknown> } | null>(null)
-let offConfirm: (() => void) | null = null
-const CONFIRM_LABELS: Record<string, string> = {
-  delete_note: '删除笔记', delete_memory: '删除记忆', delete_conversation: '删除对话'
-}
-function onConfirm(confirmed: boolean) {
-  if (!confirmDialog.value) return
-  window.api.agent.confirmResponse(confirmDialog.value.reqId, confirmed)
-  confirmDialog.value = null
-}
-
 // ── Skill extract dialog ────────────────────────────────────────────────────
 const showSkillDialog  = ref(false)
 function openSkillDialog()  { showSkillDialog.value = true }
@@ -104,8 +92,6 @@ onMounted(async () => {
   await settings.load()
   await chat.loadConversations()
   await loadShortcuts()
-
-  offConfirm = window.api.agent.onConfirmRequest(req => { confirmDialog.value = req })
 
   if (chat.pendingNoteContext) {
     const { title, content } = chat.pendingNoteContext
@@ -179,7 +165,6 @@ function onGlobalKey(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onGlobalKey))
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKey)
-  offConfirm?.()
 })
 
 // ── Export conversation ──────────────────────────────────────────────────────
@@ -649,34 +634,6 @@ onUnmounted(() => {
       />
     </Transition>
 
-    <!-- Destructive action confirmation dialog -->
-    <Transition name="modal">
-      <div v-if="confirmDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 p-6 mx-4 max-w-sm w-full">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
-              <Trash2 class="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <p class="font-semibold text-zinc-800 dark:text-zinc-100">确认执行</p>
-              <p class="text-xs text-zinc-500">{{ CONFIRM_LABELS[confirmDialog.name] ?? confirmDialog.name }}</p>
-            </div>
-          </div>
-          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-1">AI 即将执行以下不可撤销的操作：</p>
-          <pre class="text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3 mb-4 overflow-x-auto max-h-28">{{ JSON.stringify(confirmDialog.args, null, 2) }}</pre>
-          <div class="flex gap-2 justify-end">
-            <button
-              class="px-4 py-2 rounded-xl text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              @click="onConfirm(false)"
-            >取消</button>
-            <button
-              class="px-4 py-2 rounded-xl text-sm bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
-              @click="onConfirm(true)"
-            >确认执行</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
