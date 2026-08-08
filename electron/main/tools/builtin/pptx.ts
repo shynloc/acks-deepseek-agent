@@ -33,8 +33,6 @@ function uniquePath(dir: string, name: string, ext: string): string {
   return p
 }
 
-function hex(c: string) { return `#${c}` }
-
 // ── Slide builders ────────────────────────────────────────────────────────────
 
 /** Cover slide */
@@ -339,7 +337,8 @@ toolRegistry.register({
     },
   },
 
-  handler: async (args: { filename: string; slides: SlideSpec[] }) => {
+  handler: async (rawArgs) => {
+    const args = rawArgs as unknown as { filename: string; slides: SlideSpec[] }
     const desktopDir = app.getPath('desktop')
     const outPath    = uniquePath(desktopDir, args.filename, 'pptx')
 
@@ -375,12 +374,10 @@ toolRegistry.register({
     await prs.writeFile({ fileName: outPath })
     await shell.openPath(outPath)
 
+    // Must return a string like every other tool: the agent loop puts this straight
+    // into the tool message, and the renderer parses the 「文件：」 marker to build
+    // the artifact chip.
     const slideCount = args.slides.length
-    return {
-      success:    true,
-      filePath:   outPath,
-      result:     `✅ 演示文稿已生成：${path.basename(outPath)}（${slideCount} 张幻灯片），已保存到桌面。`,
-      artifacts: [{ type: 'pptx', path: outPath, name: path.basename(outPath) }],
-    }
+    return `✅ 演示文稿已生成\n📊 文件：${path.basename(outPath)}\n📑 幻灯片：${slideCount} 张\n💡 已保存到桌面，可用 PowerPoint / Keynote / WPS 打开`
   },
 })

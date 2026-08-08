@@ -36,8 +36,11 @@ export async function ocrPdfFile(
   const buffer = await file.arrayBuffer()
   if (signal.aborted) return { text: '', pagesProcessed: 0, cancelled: true }
 
-  const pdf        = await getDocument({ data: buffer }).promise
-  const totalPages = pdf.numPages
+  // Keep the loading task: pdfjs v6 removed PDFDocumentProxy.destroy() —
+  // teardown goes through loadingTask.destroy() instead.
+  const loadingTask = getDocument({ data: buffer })
+  const pdf         = await loadingTask.promise
+  const totalPages  = pdf.numPages
 
   // ── Init Tesseract worker once (reused across all pages) ─────────────────
   const { createWorker } = await import('tesseract.js')
@@ -60,7 +63,7 @@ export async function ocrPdfFile(
       canvas.width   = Math.floor(viewport.width)
       canvas.height  = Math.floor(viewport.height)
       const ctx      = canvas.getContext('2d')!
-      await page.render({ canvasContext: ctx, viewport }).promise
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise
       page.cleanup()
 
       // OCR the canvas
@@ -85,7 +88,7 @@ export async function ocrPdfFile(
     }
   } finally {
     await worker.terminate()
-    await pdf.destroy()
+    await loadingTask.destroy()
   }
 
   return {

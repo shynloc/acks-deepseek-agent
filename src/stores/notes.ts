@@ -64,9 +64,11 @@ export const useNotesStore = defineStore('notes', () => {
   async function updateNote(id: string, patch: Partial<Note>): Promise<void> {
     const idx = notes.value.findIndex(n => n.id === id)
     if (idx === -1) return
+    // Only recompute wordCount when content changed — spreading an undefined
+    // wordCount would wipe the existing value on title/tag-only updates.
     const updated = {
       ...patch,
-      wordCount: patch.content !== undefined ? countWords(patch.content) : undefined,
+      ...(patch.content !== undefined ? { wordCount: countWords(patch.content) } : {}),
       updatedAt: Date.now()
     }
     await window.api.db.notes.update(id, updated)

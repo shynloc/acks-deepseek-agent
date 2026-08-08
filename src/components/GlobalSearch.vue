@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import { Search, FileText, MessageSquare } from '@lucide/vue'
 import { useNotesStore, type Note } from '@/stores/notes'
 import { useChatStore, type Conversation } from '@/stores/chat'
@@ -152,8 +152,7 @@ function onKeydown(e: KeyboardEvent) {
 
 function goToNote(note: Note) {
   emit('close')
-  router.push('/notebook')
-  // Let Notebook handle deep-linking via query param in next iteration
+  router.push({ path: '/notebook', query: { openNote: note.id } })
 }
 
 function goToConv(conv: Conversation) {

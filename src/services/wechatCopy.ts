@@ -25,7 +25,7 @@ function expandPseudoElements(renderedHtml: string, theme: string, isDark: boole
     inlinePseudoElements: true,
     preserveImportant: true,
     applyWidthAttributes: false,
-    applyTableAttributes: false,
+    applyAttributesTableElements: false,
   })
 }
 
@@ -97,11 +97,10 @@ export async function copyToWeChat(renderedHtml: string, theme: string, isDark =
   document.body.appendChild(renderRoot)
 
   // Wait two animation frames so the browser fully computes styles
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
   // ── Step 2: read the page background from computed styles ─────────────────
   const computedPreview = window.getComputedStyle(renderPreview)
-  const pageBg = computedPreview.backgroundColor          // e.g. "rgb(10, 10, 10)"
   const pageColor = computedPreview.color
 
   // ── Step 3: build the export structure ────────────────────────────────────

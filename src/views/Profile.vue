@@ -2,8 +2,8 @@
 import { onMounted, computed, ref } from 'vue'
 import {
   MessageSquare, FileText, Type, Zap, Key, Sun, Moon,
-  CheckCircle, XCircle, Loader, Loader2, Download, Upload,
-  FolderOpen, FileJson, BookOpen, AlertCircle, Globe, Bot, Sparkles, Pencil, Trash2, Plus,
+  CheckCircle, XCircle, Loader, Loader2, Upload,
+  FolderOpen, FileJson, BookOpen, AlertCircle, Bot, Sparkles, Pencil, Trash2, Plus,
   Puzzle, ToggleLeft, ToggleRight, User, Brain, Star, Search, X, ChevronDown,
   Bookmark, Archive, ArchiveRestore, Dna, Cloud, RefreshCw
 } from '@lucide/vue'
@@ -274,6 +274,9 @@ const costEstimate = computed(() => {
   return cost < 0.01 ? '< $0.01' : `~$${cost.toFixed(2)}`
 })
 
+// `window` is not in Vue's template global whitelist — templates must go through this.
+function openExternal(url: string): void { window.api.shell.openExternal(url) }
+
 function fmt(n: number): string { return n.toLocaleString('zh-CN') }
 function fmtLarge(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
@@ -525,7 +528,7 @@ async function importMarkdown() {
               <label class="text-xs text-indigo-700 dark:text-indigo-300 shrink-0 font-medium">推理深度</label>
               <div class="flex gap-1.5 flex-1">
                 <button
-                  v-for="effort in [{ v:'high', label:'高' }, { v:'max', label:'超深' }]"
+                  v-for="effort in ([{ v:'high', label:'高' }, { v:'max', label:'超深' }] as const)"
                   :key="effort.v"
                   @click="settings.reasoningEffort = effort.v; settings.save()"
                   class="flex-1 text-xs py-1 rounded-lg border font-medium transition-all"
@@ -1164,7 +1167,7 @@ async function importMarkdown() {
                     href="https://docs.qq.com/scenario/open-claw.html?nlc=1"
                     target="_blank"
                     class="text-cyan-500 hover:underline"
-                    @click.prevent="window.api.shell.openExternal('https://docs.qq.com/scenario/open-claw.html?nlc=1')"
+                    @click.prevent="openExternal('https://docs.qq.com/scenario/open-claw.html?nlc=1')"
                   >腾讯文档授权页</a>
                   获取 Token（登录后页面自动显示）
                 </p>

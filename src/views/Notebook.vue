@@ -146,7 +146,7 @@
           <button
             v-if="searchQuery"
             class="text-gray-400 hover:text-gray-600"
-            @click="searchQuery = ''; semanticResults.value = []; onSearch()"
+            @click="searchQuery = ''; semanticResults = []; onSearch()"
           >
             <X class="w-3 h-3" />
           </button>
@@ -414,7 +414,7 @@ import {
   Plus, X, Search, BookOpen, FolderOpen, Bookmark,
   LayoutGrid, List, Pencil, Trash2, GripVertical, LayoutTemplate, Sparkles, Loader2
 } from '@lucide/vue'
-import { useNotesStore, type Note, type Tag } from '@/stores/notes'
+import { useNotesStore, type Note } from '@/stores/notes'
 import { useChatStore } from '@/stores/chat'
 import { useRouter, useRoute } from 'vue-router'
 import NoteCard from '@/components/notes/NoteCard.vue'
@@ -679,9 +679,9 @@ async function semanticSearch() {
     if (!res.success || !res.results?.length) {
       semanticResults.value = []
       semanticSearchDone.value = true
-      // If the adaptive threshold was very high (>0.72), the model likely has poor
-      // Chinese discrimination — hint about a better model
-      if (res.threshold && res.threshold > 0.68) {
+      // Scores clustered high with nothing passing the gap check → the model likely
+      // has poor Chinese discrimination; hint about a better one
+      if (res.topScore && res.topScore > 0.68) {
         semanticModelHint.value = '当前 Embedding 模型对中文语义区分度有限，建议在「个人中心 → 语义搜索」切换为硅基流动（BAAI/bge-m3）以获得更准确的中文搜索结果。'
       }
       return
@@ -755,14 +755,21 @@ onMounted(async () => {
   ])
   isLoading.value = false
 
-  // If navigated here with ?openNote=<id>, open that note in editor
-  const openNoteId = route.query.openNote as string | undefined
-  if (openNoteId) {
-    const note = notes.value.find(n => n.id === openNoteId)
-    if (note) openEditor(note)
-    router.replace({ path: '/notebook' })
-  }
+  consumeOpenNoteQuery()
 })
+
+// Open a note when arriving with ?openNote=<id>. Runs on mount (navigating in from
+// another page) and on query change (global search fired while already on this page,
+// where the component is not remounted).
+function consumeOpenNoteQuery(): void {
+  const openNoteId = route.query.openNote as string | undefined
+  if (!openNoteId) return
+  const note = notes.value.find(n => n.id === openNoteId)
+  if (note) openEditor(note)
+  router.replace({ path: '/notebook' })
+}
+
+watch(() => route.query.openNote, () => consumeOpenNoteQuery())
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
