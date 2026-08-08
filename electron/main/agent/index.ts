@@ -6,6 +6,7 @@ import { loadPluginsFromDb } from '../tools/builtin/plugins'
 import { runAgentLoop, type ChatMessage } from './loop'
 import { toolRegistry } from '../tools/registry'
 import { isEmbeddingEnabled, embedText, cosineSimilarity } from '../services/embedding'
+import { selectRelevantNotes } from './rag'
 import type { Database } from 'better-sqlite3'
 
 const store = new Store()
@@ -27,29 +28,17 @@ async function buildRagContext(db: Database, message: string): Promise<string> {
   const qVec = await embedText(message).catch(() => null)
   if (!qVec) return ''
 
-  const FLOOR = 0.50
-  const GAP_MIN = 0.08
-  const MAX = 3
-
   const rows = (db as any).prepare(
     `SELECT id, title, content, embedding FROM notes WHERE embedding IS NOT NULL`
   ).all() as { id: string; title: string; content: string; embedding: string }[]
 
-  const scored = rows
-    .map(r => {
-      try { return { ...r, score: cosineSimilarity(qVec, JSON.parse(r.embedding)) }
-      } catch { return { ...r, score: 0 } }
-    })
-    .filter(r => r.score >= FLOOR)
-    .sort((a, b) => b.score - a.score)
+  const scored = rows.map(r => {
+    try { return { ...r, score: cosineSimilarity(qVec, JSON.parse(r.embedding)) }
+    } catch { return { ...r, score: 0 } }
+  })
 
-  // Gap detection: cut at first large drop in relevance
-  let cutoff = scored.length
-  for (let i = 0; i < scored.length - 1; i++) {
-    if (scored[i].score - scored[i + 1].score >= GAP_MIN) { cutoff = i + 1; break }
-  }
-
-  const relevant = scored.slice(0, cutoff).slice(0, MAX)
+  // Floor + gap detection live in rag.ts so they can be unit-tested
+  const relevant = selectRelevantNotes(scored)
   if (!relevant.length) return ''
 
   const blocks = relevant.map(r => {
