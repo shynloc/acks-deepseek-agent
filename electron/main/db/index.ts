@@ -3,6 +3,7 @@ import { app } from 'electron'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { schema } from './schema'
+import { runMigrations } from './migrations'
 
 let db: Database.Database | null = null
 
@@ -12,50 +13,11 @@ export function initDatabase(): Database.Database {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(schema)
-  // Incremental migrations (idempotent ALTER TABLE — fails silently if column exists)
-  try { db.exec('ALTER TABLE conversations ADD COLUMN agent_id TEXT') } catch { /* exists */ }
 
-  // Sprint E/G: notes table column additions
-  const notesMigrations: [string, string][] = [
-    ['memos_name',       'TEXT'],
-    ['memos_synced_at',  'INTEGER'],
-    ['visibility',       "TEXT DEFAULT 'private'"],
-    ['embedding',        'TEXT'],
-    ['embedding_model',  'TEXT'],
-  ]
-  for (const [col, def] of notesMigrations) {
-    try { db.exec(`ALTER TABLE notes ADD COLUMN ${col} ${def}`) } catch { /* already exists */ }
-  }
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_notes_memos ON notes(memos_name)') } catch { /* ok */ }
-
-  // Memories table (Sprint E) — base schema without new columns for backward compat
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS memories (
-      id          TEXT PRIMARY KEY,
-      content     TEXT NOT NULL,
-      category    TEXT NOT NULL DEFAULT 'general',
-      importance  INTEGER DEFAULT 5,
-      created_at  INTEGER NOT NULL,
-      updated_at  INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_memories_rank ON memories(importance DESC, created_at DESC);
-  `)
-  // Idempotent column additions — run BEFORE indexes that reference these columns
-  const memMigrations: [string, string][] = [
-    ['is_pinned',    'INTEGER DEFAULT 0'],
-    ['recall_count', 'INTEGER DEFAULT 0'],
-    ['last_recalled','INTEGER'],
-    ['is_archived',  'INTEGER DEFAULT 0'],
-  ]
-  for (const [col, def] of memMigrations) {
-    try { db.exec(`ALTER TABLE memories ADD COLUMN ${col} ${def}`) } catch { /* already exists */ }
-  }
-  // Indexes that depend on new columns (safe after migration above)
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_memories_pinned ON memories(is_pinned)') } catch { /* ok */ }
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_archived, importance DESC)') } catch { /* ok */ }
+  const version = runMigrations(db)
 
   seedBuiltinSkills(db)
-  console.log('[DB] Initialized at:', dbPath)
+  console.log(`[DB] Initialized at: ${dbPath} (schema v${version})`)
   return db
 }
 
