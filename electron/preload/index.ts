@@ -67,7 +67,10 @@ const api = {
       remove: (noteId: string): Promise<void> => ipcRenderer.invoke('db:shortcuts:remove', noteId)
     },
     stats: {
-      get: (): Promise<unknown> => ipcRenderer.invoke('db:stats:get')
+      get: (): Promise<{
+        noteCount: number; wordCount: number; convCount: number; tokenCount: number
+        days: Array<{ label: string; notes: number; messages: number }>
+      }> => ipcRenderer.invoke('db:stats:get')
     },
     export: {
       json: (): Promise<{ success: boolean; filePath?: string }> => ipcRenderer.invoke('db:export:json'),
@@ -103,7 +106,7 @@ const api = {
       ipcRenderer.invoke('semantic:embed', noteId),
     embedAll: (opts?: { force?: boolean }): Promise<{ success: boolean; done?: number; total?: number; alreadyEmbedded?: number; error?: string }> =>
       ipcRenderer.invoke('semantic:embed:all', opts ?? {}),
-    search:   (query: string): Promise<{ success: boolean; results?: { id: string; score: number }[]; error?: string }> =>
+    search:   (query: string): Promise<{ success: boolean; results?: { id: string; score: number }[]; topScore?: number; error?: string }> =>
       ipcRenderer.invoke('semantic:search', query),
     status:   (): Promise<{ total: number; embedded: number }> =>
       ipcRenderer.invoke('semantic:status'),
@@ -140,7 +143,7 @@ const api = {
       ipcRenderer.on('agent:tool-result', h)
       return () => ipcRenderer.removeListener('agent:tool-result', h)
     },
-    onDone: (fn: (usage: { promptTokens: number; completionTokens: number }) => void) => {
+    onDone: (fn: (usage: { promptTokens: number; completionTokens: number; cacheHitTokens: number; cacheMissTokens: number }) => void) => {
       const h = (_: Electron.IpcRendererEvent, u: any) => fn(u)
       ipcRenderer.on('agent:done', h)
       return () => ipcRenderer.removeListener('agent:done', h)

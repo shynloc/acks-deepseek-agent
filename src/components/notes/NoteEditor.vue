@@ -363,7 +363,7 @@ const viewModes = [
   { key: 'edit', label: '编辑' },
   { key: 'split', label: '分栏' },
   { key: 'preview', label: '预览' }
-]
+] as const
 
 const form = ref({
   title: '',

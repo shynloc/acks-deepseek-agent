@@ -11,7 +11,6 @@ const name           = ref('')
 const description    = ref('')
 const endpointUrl    = ref('')
 const method         = ref<'GET' | 'POST'>('POST')
-const headersText    = ref('{}')
 const paramSchemaText = ref(`{
   "type": "object",
   "properties": {

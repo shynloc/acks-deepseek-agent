@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import {
   Send, Square, Globe, BookOpen, X, Paperclip, FileText,
-  Image as ImageIcon, AlertCircle, CheckCircle, Loader,
+  AlertCircle, CheckCircle, Loader,
   Maximize2, Minimize2, GripHorizontal
 } from '@lucide/vue'
 import { useChatStore } from '@/stores/chat'

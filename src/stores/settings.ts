@@ -171,7 +171,7 @@ export const useSettingsStore = defineStore('settings', () => {
     webdavUrl.value   = (await window.api.config.get('webdavUrl')   as string) ?? ''
     webdavUser.value  = (await window.api.config.get('webdavUser')  as string) ?? ''
     webdavPass.value  = (await window.api.config.get('webdavPass')  as string) ?? ''
-    embeddingProvider.value      = (await window.api.config.get('embeddingProvider')      as string)  ?? 'siliconflow'
+    embeddingProvider.value      = (await window.api.config.get('embeddingProvider')      as typeof embeddingProvider.value) ?? 'siliconflow'
     embeddingModel.value         = (await window.api.config.get('embeddingModel')         as string)  ?? 'BAAI/bge-m3'
     embeddingApiKey.value        = (await window.api.config.get('embeddingApiKey')        as string)  ?? ''
     embeddingBaseUrl.value       = (await window.api.config.get('embeddingBaseUrl')       as string)  ?? 'https://api.siliconflow.cn/v1'
