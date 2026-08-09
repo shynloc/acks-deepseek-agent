@@ -125,7 +125,7 @@
         :class="editorOpen && isWideScreen ? 'w-80 shrink-0 border-r border-gray-200 dark:border-gray-700' : 'flex-1'"
       >
       <!-- Toolbar row -->
-      <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div class="flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
         <!-- Search -->
         <div
           class="flex items-center gap-2 flex-1 max-w-sm rounded-xl px-3 py-1.5 transition-colors"
@@ -319,18 +319,25 @@
         </div>
 
           <!-- List -->
-          <div v-else class="space-y-1.5">
+          <!-- 紧凑列表：取消行间距改用 1px 分隔线，行高 ≤51px。
+               原为 p-3 + space-y-1.5（节距 70px），1280×800 一屏仅 9 条 -->
+          <div v-else class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
             <div
               v-for="note in visibleNotes"
               :key="note.id"
-              class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all"
-              :class="{ 'border-blue-400 dark:border-blue-500': editorOpen && isWideScreen && editingNote?.id === note.id }"
+              class="group flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-gray-800 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40 relative"
+              :class="{ 'bg-blue-50/60 dark:bg-blue-950/30': editorOpen && isWideScreen && editingNote?.id === note.id }"
               @click="editorOpen && isWideScreen ? openEditor(note) : (selectedNote = note)"
               @dblclick="editorOpen && isWideScreen ? undefined : openEditor(note)"
             >
-              <div v-if="note.color && note.color !== 'none'" class="w-1.5 h-8 rounded-full shrink-0" :style="{ background: noteColorHex(note.color) }" />
+              <!-- 选中态：左侧 2px 指示条，不整块填充主色（规范 §7.1） -->
+              <div
+                v-if="editorOpen && isWideScreen && editingNote?.id === note.id"
+                class="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"
+              />
+              <div v-if="note.color && note.color !== 'none'" class="w-1.5 h-7 rounded-full shrink-0" :style="{ background: noteColorHex(note.color) }" />
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
+                <div class="flex items-center gap-2">
                   <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
                   <span v-for="tag in note.tags.slice(0, 2)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" :class="tagChipClass(tag.color)">{{ tag.name }}</span>
                 </div>

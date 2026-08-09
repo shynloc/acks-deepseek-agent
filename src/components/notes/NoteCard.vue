@@ -8,11 +8,13 @@
     <!-- Color bar -->
     <div v-if="note.color && note.color !== 'none'" class="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" :class="colorBar" />
 
-    <div class="p-4" :class="note.color && note.color !== 'none' ? 'pl-5' : ''">
+    <!-- 紧凑网格卡：目标高 ≤128px。原为 p-4 + 标题 2 行 + 预览 3 行 = 173px，
+         1280×800 一屏 9 张、960×600 仅 4 张，密度与列表视图持平即毫无收益 -->
+    <div class="p-3" :class="note.color && note.color !== 'none' ? 'pl-4' : ''">
       <!-- Header row -->
-      <div class="flex items-start justify-between gap-2 mb-2">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
         <h3
-          class="font-semibold text-sm leading-snug text-gray-900 dark:text-gray-100 line-clamp-2 flex-1"
+          class="font-semibold text-sm leading-snug text-gray-900 dark:text-gray-100 line-clamp-1 flex-1"
           v-html="highlightText(note.title || '无标题', searchQuery ?? '')"
         />
         <div v-if="note.tags?.length" class="flex flex-wrap gap-1 shrink-0">
@@ -30,7 +32,7 @@
 
       <!-- Content preview -->
       <p
-        class="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed mb-3"
+        class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed mb-2"
         v-html="highlightText(plainPreview, searchQuery ?? '')"
       />
 
