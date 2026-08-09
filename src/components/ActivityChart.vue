@@ -8,7 +8,7 @@
         x1="0" :x2="width"
         :y1="chartTop + (chartH / 3) * (i - 1)"
         :y2="chartTop + (chartH / 3) * (i - 1)"
-        class="stroke-gray-100 dark:stroke-gray-800"
+        class="stroke-zinc-100 dark:stroke-zinc-800"
         stroke-width="1"
       />
 
@@ -43,17 +43,17 @@
         :x="barX(i) + barW * 0.45"
         :y="height - 2"
         text-anchor="middle"
-        class="fill-gray-400 text-[9px]"
+        class="fill-zinc-400 text-[9px]"
         font-size="9"
       >{{ d.label }}</text>
     </svg>
 
     <!-- Legend -->
     <div class="flex items-center gap-4 mt-1">
-      <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+      <div class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         <span class="w-2.5 h-2.5 rounded-sm bg-blue-400" />新增笔记
       </div>
-      <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+      <div class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         <span class="w-2.5 h-2.5 rounded-sm bg-purple-400" />对话次数
       </div>
     </div>

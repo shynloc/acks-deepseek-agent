@@ -333,14 +333,14 @@ async function importMarkdown() {
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto bg-gray-50 dark:bg-gray-950">
+  <div class="h-full overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
     <div class="max-w-2xl mx-auto p-6 space-y-6">
 
       <!-- ── Status toast ── -->
       <Transition name="slide-down">
         <div
           v-if="opStatus"
-          class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium"
+          class="fixed top-16 left-1/2 -translate-x-1/2 z-toast flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium"
           :class="opStatus.type === 'success'
             ? 'bg-emerald-500 text-white'
             : 'bg-red-500 text-white'"
@@ -353,49 +353,49 @@ async function importMarkdown() {
 
       <!-- ── Dashboard stats ── -->
       <section>
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">数据概览</h2>
+        <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">数据概览</h2>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div
             v-for="s in statCards"
             :key="s.label"
-            class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex flex-col gap-2"
+            class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-2"
           >
             <div class="w-8 h-8 rounded-xl flex items-center justify-center" :class="s.bg">
               <component :is="s.icon" class="w-4 h-4" :class="s.color" />
             </div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ s.value }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">{{ s.label }}</div>
+            <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ s.value }}</div>
+            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ s.label }}</div>
           </div>
         </div>
 
         <!-- Token cost hint -->
-        <div v-if="costEstimate" class="mt-2 text-xs text-gray-400 dark:text-gray-500 text-right">
+        <div v-if="costEstimate" class="mt-2 text-xs text-zinc-400 dark:text-zinc-500 text-right">
           预估消费 {{ costEstimate }}（基于 flash 定价）
         </div>
       </section>
 
       <!-- ── 7-day activity chart ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">近 7 日活跃</h2>
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">近 7 日活跃</h2>
         <div v-if="statsData && statsData.days.some(d => d.notes > 0 || d.messages > 0)">
           <ActivityChart :data="statsData.days" :height="90" />
         </div>
-        <div v-else class="h-20 flex items-center justify-center text-sm text-gray-400">
+        <div v-else class="h-20 flex items-center justify-center text-sm text-zinc-400">
           暂无活跃数据
         </div>
       </section>
 
       <!-- ── DeepSeek 账户余额 ── -->
-      <section v-if="settings.apiKey" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section v-if="settings.apiKey" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <Zap class="w-4 h-4 text-blue-500" />
-            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">DeepSeek 账户余额</h2>
+            <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">DeepSeek 账户余额</h2>
           </div>
           <button
             @click="loadBalance"
             :disabled="balanceLoading"
-            class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40"
+            class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40"
             title="刷新余额"
           >
             <RefreshCw class="w-3.5 h-3.5" :class="balanceLoading ? 'animate-spin' : ''" />
@@ -403,7 +403,7 @@ async function importMarkdown() {
         </div>
 
         <!-- Loading -->
-        <div v-if="balanceLoading" class="flex items-center gap-2 text-sm text-gray-400 py-2">
+        <div v-if="balanceLoading" class="flex items-center gap-2 text-sm text-zinc-400 py-2">
           <Loader class="w-4 h-4 animate-spin" /> 查询中…
         </div>
 
@@ -423,22 +423,22 @@ async function importMarkdown() {
             </span>
           </div>
 
-          <div v-for="b in balanceData.balances" :key="b.currency" class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+          <div v-for="b in balanceData.balances" :key="b.currency" class="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
             <div class="flex items-baseline justify-between mb-3">
-              <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ b.currency === 'CNY' ? '人民币账户' : 'USD 账户' }}</span>
-              <span class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{ b.currency === 'CNY' ? '人民币账户' : 'USD 账户' }}</span>
+              <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.total_balance).toFixed(2) }}
               </span>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                <div class="text-[11px] text-gray-400 mb-0.5">赠金余额</div>
+              <div class="bg-white dark:bg-zinc-700 rounded-lg px-3 py-2">
+                <div class="text-[11px] text-zinc-400 mb-0.5">赠金余额</div>
                 <div class="text-sm font-semibold text-amber-600 dark:text-amber-400">
                   {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.granted_balance).toFixed(2) }}
                 </div>
               </div>
-              <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                <div class="text-[11px] text-gray-400 mb-0.5">充值余额</div>
+              <div class="bg-white dark:bg-zinc-700 rounded-lg px-3 py-2">
+                <div class="text-[11px] text-zinc-400 mb-0.5">充值余额</div>
                 <div class="text-sm font-semibold text-blue-600 dark:text-blue-400">
                   {{ b.currency === 'CNY' ? '¥' : '$' }}{{ parseFloat(b.topped_up_balance).toFixed(2) }}
                 </div>
@@ -446,15 +446,15 @@ async function importMarkdown() {
             </div>
           </div>
 
-          <p class="text-[11px] text-gray-400 text-right">扣款顺序：赠金 → 充值余额</p>
+          <p class="text-[11px] text-zinc-400 text-right">扣款顺序：赠金 → 充值余额</p>
         </div>
 
         <!-- Not configured -->
-        <div v-else class="text-sm text-gray-400 py-1">配置 API Key 后自动查询</div>
+        <div v-else class="text-sm text-zinc-400 py-1">配置 API Key 后自动查询</div>
       </section>
 
       <!-- ── API 配置 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center gap-2 mb-4">
           <Key class="w-4 h-4 text-blue-500" />
           <h2 class="text-base font-semibold">API 配置</h2>
@@ -463,18 +463,18 @@ async function importMarkdown() {
         <div class="space-y-4">
           <!-- API Key -->
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">API Key</label>
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">API Key</label>
             <div class="flex gap-2">
               <input
                 v-model="settings.apiKey"
                 type="password"
                 placeholder="sk-xxxxxxxxxxxxxxxx"
-                class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 @click="settings.testApi()"
                 :disabled="!settings.apiKey || settings.isTesting"
-                class="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap disabled:opacity-50"
+                class="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap disabled:opacity-50"
               >
                 <Loader v-if="settings.isTesting" class="w-3.5 h-3.5 animate-spin" />
                 <CheckCircle v-else-if="settings.testResult === 'success'" class="w-3.5 h-3.5 text-emerald-500" />
@@ -488,10 +488,10 @@ async function importMarkdown() {
 
           <!-- Model -->
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">模型选择</label>
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">模型选择</label>
             <select
               v-model="settings.model"
-              class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="deepseek-v4-flash">deepseek-v4-flash（通用对话，速度快）</option>
               <option value="deepseek-v4-pro">deepseek-v4-pro（深度推理，适合复杂分析）</option>
@@ -519,7 +519,7 @@ async function importMarkdown() {
               <button
                 @click="settings.thinkingEnabled = !settings.thinkingEnabled; settings.save()"
                 class="ml-3 shrink-0 transition-colors"
-                :class="settings.thinkingEnabled ? 'text-indigo-500 hover:text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                :class="settings.thinkingEnabled ? 'text-indigo-500 hover:text-indigo-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
               >
                 <ToggleRight v-if="settings.thinkingEnabled" class="w-7 h-7" />
                 <ToggleLeft  v-else                          class="w-7 h-7" />
@@ -545,9 +545,9 @@ async function importMarkdown() {
 
           <!-- Max Tokens -->
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
               最大输出 Token
-              <span class="text-xs text-gray-400 font-normal ml-1">（flash/pro 上限 384K，默认 8192 约 2 万字）</span>
+              <span class="text-xs text-zinc-400 font-normal ml-1">（flash/pro 上限 384K，默认 8192 约 2 万字）</span>
             </label>
             <div class="flex items-center gap-3">
               <input
@@ -556,18 +556,18 @@ async function importMarkdown() {
                 class="flex-1 accent-blue-500"
                 @change="settings.save()"
               />
-              <span class="text-sm font-mono w-16 text-right text-gray-600 dark:text-gray-400">{{ settings.maxTokens.toLocaleString() }}</span>
+              <span class="text-sm font-mono w-16 text-right text-zinc-600 dark:text-zinc-400">{{ settings.maxTokens.toLocaleString() }}</span>
             </div>
-            <div class="flex justify-between text-xs text-gray-400 mt-0.5 px-0.5">
+            <div class="flex justify-between text-xs text-zinc-400 mt-0.5 px-0.5">
               <span>2K</span><span>8K（推荐）</span><span>32K</span><span>64K</span>
             </div>
           </div>
 
           <!-- Temperature -->
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
               Temperature（创意度）
-              <span class="text-xs text-gray-400 font-normal ml-1">0 = 精确/确定性，1 = 均衡，2 = 发散/创意</span>
+              <span class="text-xs text-zinc-400 font-normal ml-1">0 = 精确/确定性，1 = 均衡，2 = 发散/创意</span>
             </label>
             <div class="flex items-center gap-3">
               <input
@@ -576,9 +576,9 @@ async function importMarkdown() {
                 class="flex-1 accent-blue-500"
                 @change="settings.save()"
               />
-              <span class="text-sm font-mono w-8 text-right text-gray-600 dark:text-gray-400">{{ settings.temperature.toFixed(1) }}</span>
+              <span class="text-sm font-mono w-8 text-right text-zinc-600 dark:text-zinc-400">{{ settings.temperature.toFixed(1) }}</span>
             </div>
-            <div class="flex justify-between text-xs text-gray-400 mt-0.5 px-0.5">
+            <div class="flex justify-between text-xs text-zinc-400 mt-0.5 px-0.5">
               <span>精确 0</span><span>均衡 1（推荐）</span><span>创意 2</span>
             </div>
             <p v-if="settings.temperature > 1.2" class="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
@@ -589,11 +589,11 @@ async function importMarkdown() {
 
           <!-- Base URL -->
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">API 地址</label>
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">API 地址</label>
             <input
               v-model="settings.baseUrl"
               type="text"
-              class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-gray-600 dark:text-gray-400"
+              class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-zinc-600 dark:text-zinc-400"
             />
           </div>
 
@@ -613,46 +613,46 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 内置插件 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <Puzzle class="w-4 h-4 text-blue-500" />
             <h2 class="text-base font-semibold">内置插件</h2>
           </div>
-          <span class="text-xs text-gray-400 dark:text-gray-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive, settings.embeddingActive, settings.tencentDocsActive].filter(Boolean).length }}/6 已激活</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ [settings.webSearchActive, settings.visionActive, settings.memosActive, settings.picbedActive, settings.embeddingActive, settings.tencentDocsActive].filter(Boolean).length }}/6 已激活</span>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           官方内置的能力扩展，可独立开关，不影响其他功能。
         </p>
 
         <div class="space-y-3">
           <!-- ── 联网搜索 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">🌐</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium">联网搜索</span>
-                  <span class="text-xs text-gray-400">Tavily</span>
+                  <span class="text-xs text-zinc-400">Tavily</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                     :class="settings.webSearchActive
                       ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'
                       : settings.tavilyEnabled
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >
                     {{ settings.webSearchActive ? '已激活' : settings.tavilyEnabled ? '已配置·已关闭' : '未配置' }}
                   </span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">实时搜索互联网，获取最新信息与新闻</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">实时搜索互联网，获取最新信息与新闻</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.webSearchEnabled = !settings.webSearchEnabled; settings.save()"
                   :disabled="!settings.tavilyEnabled"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.webSearchActive ? 'text-emerald-500 hover:text-emerald-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.webSearchActive ? 'text-emerald-500 hover:text-emerald-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.tavilyEnabled ? (settings.webSearchEnabled ? '点击关闭' : '点击开启') : '请先配置 API Key'"
                 >
                   <ToggleRight v-if="settings.webSearchActive" class="w-6 h-6" />
@@ -660,55 +660,55 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="webSearchExpanded = !webSearchExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="webSearchExpanded ? 'rotate-180' : ''" />
                 </button>
               </div>
             </div>
             <!-- Expanded config -->
-            <div v-if="webSearchExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="webSearchExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Tavily API Key</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">Tavily API Key</label>
                 <input
                   v-model="settings.tavilyKey"
                   type="password"
                   placeholder="tvly-xxxxxxxxxxxxxxxx"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                   @blur="settings.save()"
                 />
-                <p class="text-[11px] text-gray-400 mt-1">免费额度 1000 次/月</p>
+                <p class="text-[11px] text-zinc-400 mt-1">免费额度 1000 次/月</p>
               </div>
             </div>
           </div>
 
           <!-- ── 图像识别 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">👁️</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium">图像识别</span>
-                  <span class="text-xs text-gray-400">Xiaomi MiMo</span>
+                  <span class="text-xs text-zinc-400">Xiaomi MiMo</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                     :class="settings.visionActive
                       ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400'
                       : settings.visionEnabled
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >
                     {{ settings.visionActive ? '已激活' : settings.visionEnabled ? '已配置·已关闭' : '未配置' }}
                   </span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">上传图片时由 AI 视觉模型解读，未配置时回退本地 OCR</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">上传图片时由 AI 视觉模型解读，未配置时回退本地 OCR</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.visionPluginEnabled = !settings.visionPluginEnabled; settings.save()"
                   :disabled="!settings.visionEnabled"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.visionActive ? 'text-violet-500 hover:text-violet-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.visionActive ? 'text-violet-500 hover:text-violet-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.visionEnabled ? (settings.visionPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 API Key'"
                 >
                   <ToggleRight v-if="settings.visionActive" class="w-6 h-6" />
@@ -716,28 +716,28 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="visionExpanded = !visionExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="visionExpanded ? 'rotate-180' : ''" />
                 </button>
               </div>
             </div>
             <!-- Expanded config -->
-            <div v-if="visionExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="visionExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">MiMo API Key</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">MiMo API Key</label>
                 <div class="flex gap-2">
                   <input
                     v-model="settings.visionApiKey"
                     type="password"
                     placeholder="输入 MiMo API Key…"
-                    class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    class="flex-1 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
                     @blur="settings.save()"
                   />
                   <button
                     @click="settings.testVisionApi()"
                     :disabled="!settings.visionApiKey || settings.isTestingVision"
-                    class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                    class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-500 border border-zinc-200 dark:border-zinc-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     <Loader v-if="settings.isTestingVision" class="w-3 h-3 animate-spin" />
                     <CheckCircle v-else-if="settings.visionTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
@@ -750,22 +750,22 @@ async function importMarkdown() {
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">模型</label>
-                  <select v-model="settings.visionModel" class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs focus:outline-none" @change="settings.save()">
+                  <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">模型</label>
+                  <select v-model="settings.visionModel" class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2 py-1.5 text-xs focus:outline-none" @change="settings.save()">
                     <option value="mimo-v2.5">mimo-v2.5（推荐）</option>
                     <option value="mimo-v2-omni">mimo-v2-omni（全能）</option>
                   </select>
                 </div>
                 <div>
-                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">API 地址</label>
-                  <input v-model="settings.visionBaseUrl" type="text" class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none" @blur="settings.save()" />
+                  <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">API 地址</label>
+                  <input v-model="settings.visionBaseUrl" type="text" class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none" @blur="settings.save()" />
                 </div>
               </div>
             </div>
           </div>
 
           <!-- ── Memos 同步 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">🔄</span>
               <div class="flex-1 min-w-0">
@@ -777,17 +777,17 @@ async function importMarkdown() {
                       ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'
                       : settings.memosConfigured
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >{{ settings.memosActive ? '已激活' : settings.memosConfigured ? '已配置·已关闭' : '未配置' }}</span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">笔记与 Memos 实例双向同步，私有图片走 Memos 存储</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">笔记与 Memos 实例双向同步，私有图片走 Memos 存储</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.memosPluginEnabled = !settings.memosPluginEnabled; settings.save()"
                   :disabled="!settings.memosConfigured"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.memosActive ? 'text-emerald-500 hover:text-emerald-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.memosActive ? 'text-emerald-500 hover:text-emerald-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.memosConfigured ? (settings.memosPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 Memos'"
                 >
                   <ToggleRight v-if="settings.memosActive" class="w-6 h-6" />
@@ -795,7 +795,7 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="memosExpanded = !memosExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="memosExpanded ? 'rotate-180' : ''" />
                 </button>
@@ -803,24 +803,24 @@ async function importMarkdown() {
             </div>
 
             <!-- Expanded config -->
-            <div v-if="memosExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="memosExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Memos 服务器地址</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">Memos 服务器地址</label>
                 <input
                   v-model="settings.memosUrl"
                   type="url"
                   placeholder="https://memos.example.com"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                   @blur="settings.save()"
                 />
               </div>
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">API Token</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">API Token</label>
                 <input
                   v-model="settings.memosToken"
                   type="password"
                   placeholder="在 Memos → 设置 → 开发者 中复制"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                   @blur="settings.save()"
                 />
               </div>
@@ -829,7 +829,7 @@ async function importMarkdown() {
                 <button
                   @click="settings.testMemosConnection()"
                   :disabled="settings.isTestingMemos || !settings.memosUrl || !settings.memosToken"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors disabled:opacity-40"
                 >
                   <span v-if="settings.isTestingMemos" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                   {{ settings.isTestingMemos ? '连接中…' : '测试连接' }}
@@ -843,10 +843,10 @@ async function importMarkdown() {
               </div>
               <!-- Sync interval -->
               <div class="flex items-center gap-3">
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0">自动同步</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0">自动同步</label>
                 <select
                   v-model="settings.memosSyncInterval"
-                  class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                  class="flex-1 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
                   @change="settings.save()"
                 >
                   <option :value="0">手动</option>
@@ -879,30 +879,30 @@ async function importMarkdown() {
           </div>
 
           <!-- ── 图床 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">🖼️</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium">图床</span>
-                  <span class="text-xs text-gray-400">Cloudflare R2</span>
+                  <span class="text-xs text-zinc-400">Cloudflare R2</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                     :class="settings.picbedActive
                       ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
                       : settings.picbedConfigured
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >{{ settings.picbedActive ? '已激活' : settings.picbedConfigured ? '已配置·已关闭' : '未配置' }}</span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">公开笔记图片 CDN 存储，复制到微信公众号时图片正常显示</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">公开笔记图片 CDN 存储，复制到微信公众号时图片正常显示</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.picbedPluginEnabled = !settings.picbedPluginEnabled; settings.save()"
                   :disabled="!settings.picbedConfigured"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.picbedActive ? 'text-orange-500 hover:text-orange-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.picbedActive ? 'text-orange-500 hover:text-orange-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.picbedConfigured ? (settings.picbedPluginEnabled ? '点击关闭' : '点击开启') : '请先配置图床'"
                 >
                   <ToggleRight v-if="settings.picbedActive" class="w-6 h-6" />
@@ -910,39 +910,39 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="picbedExpanded = !picbedExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="picbedExpanded ? 'rotate-180' : ''" />
                 </button>
               </div>
             </div>
-            <div v-if="picbedExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="picbedExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">图床地址</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">图床地址</label>
                 <input
                   v-model="settings.picbedUrl"
                   type="url"
                   placeholder="https://img.example.com"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                   @blur="settings.save()"
                 />
               </div>
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">管理密码</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">管理密码</label>
                 <input
                   v-model="settings.picbedToken"
                   type="password"
                   placeholder="图床 Worker 管理密码"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                   @blur="settings.save()"
                 />
-                <p class="text-[11px] text-gray-400 mt-1">使用 ACKS 图床项目搭建，或自建 Cloudflare Worker + R2</p>
+                <p class="text-[11px] text-zinc-400 mt-1">使用 ACKS 图床项目搭建，或自建 Cloudflare Worker + R2</p>
               </div>
               <div class="flex items-center gap-2">
                 <button
                   @click="settings.testPicbedConnection()"
                   :disabled="settings.isTestingPicbed || !settings.picbedUrl || !settings.picbedToken"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors disabled:opacity-40"
                 >
                   <span v-if="settings.isTestingPicbed" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                   {{ settings.isTestingPicbed ? '测试中…' : '测试连接' }}
@@ -958,32 +958,32 @@ async function importMarkdown() {
           </div>
 
           <!-- ── 语义搜索 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">🔍</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium">语义搜索</span>
-                  <span class="text-xs text-gray-400">{{ EMBEDDING_PROVIDERS.find(p => p.id === settings.embeddingProvider)?.name ?? settings.embeddingProvider }}</span>
+                  <span class="text-xs text-zinc-400">{{ EMBEDDING_PROVIDERS.find(p => p.id === settings.embeddingProvider)?.name ?? settings.embeddingProvider }}</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                     :class="settings.embeddingActive
                       ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
                       : settings.embeddingConfigured
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >
                     {{ settings.embeddingActive ? '已激活' : settings.embeddingConfigured ? '已配置·已关闭' : '未配置' }}
                   </span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">为笔记构建向量索引，支持「以意搜意」的语义检索</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">为笔记构建向量索引，支持「以意搜意」的语义检索</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.embeddingPluginEnabled = !settings.embeddingPluginEnabled; settings.save()"
                   :disabled="!settings.embeddingConfigured"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.embeddingActive ? 'text-indigo-500 hover:text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.embeddingActive ? 'text-indigo-500 hover:text-indigo-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.embeddingConfigured ? (settings.embeddingPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 API Key'"
                 >
                   <ToggleRight v-if="settings.embeddingActive" class="w-6 h-6" />
@@ -991,7 +991,7 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="embeddingExpanded = !embeddingExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="embeddingExpanded ? 'rotate-180' : ''" />
                 </button>
@@ -999,10 +999,10 @@ async function importMarkdown() {
             </div>
 
             <!-- Expanded config -->
-            <div v-if="embeddingExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="embeddingExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <!-- Provider selector -->
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1.5">选择供应商</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">选择供应商</label>
                 <div class="grid grid-cols-2 gap-1.5">
                   <button
                     v-for="p in EMBEDDING_PROVIDERS"
@@ -1011,29 +1011,29 @@ async function importMarkdown() {
                     class="text-left px-3 py-2 rounded-lg border text-[11px] transition-all"
                     :class="settings.embeddingProvider === p.id
                       ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'"
+                      : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'"
                   >
                     <span class="font-semibold block">{{ p.name }}</span>
-                    <span class="text-gray-400 dark:text-gray-500">{{ p.badge }}</span>
+                    <span class="text-zinc-400 dark:text-zinc-500">{{ p.badge }}</span>
                   </button>
                 </div>
               </div>
 
               <!-- API Key (hidden for Ollama) -->
               <div v-if="EMBEDDING_PROVIDERS.find(p => p.id === settings.embeddingProvider)?.needKey !== false">
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">API Key</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">API Key</label>
                 <div class="flex gap-2">
                   <input
                     v-model="settings.embeddingApiKey"
                     type="password"
                     :placeholder="settings.embeddingProvider === 'siliconflow' ? 'sk-xxxxxxxx（注册 siliconflow.cn 获取）' : '输入 API Key…'"
-                    class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="flex-1 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     @blur="settings.save()"
                   />
                   <button
                     @click="settings.testEmbeddingApi()"
                     :disabled="!settings.embeddingApiKey || settings.isTestingEmbedding"
-                    class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                    class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-500 border border-zinc-200 dark:border-zinc-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     <Loader v-if="settings.isTestingEmbedding" class="w-3 h-3 animate-spin" />
                     <CheckCircle v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
@@ -1049,7 +1049,7 @@ async function importMarkdown() {
               <div v-else class="space-y-2">
                 <!-- Model chips -->
                 <div>
-                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1.5">选择模型</label>
+                  <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">选择模型</label>
                   <div class="flex flex-wrap gap-1.5">
                     <button
                       v-for="m in OLLAMA_MODELS"
@@ -1058,21 +1058,21 @@ async function importMarkdown() {
                       class="flex flex-col items-start px-2.5 py-1.5 rounded-lg border text-[11px] transition-all"
                       :class="settings.embeddingModel === m.model
                         ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'"
+                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'"
                     >
                       <span class="font-mono font-semibold">{{ m.label }}</span>
-                      <span class="text-gray-400 dark:text-gray-500">{{ m.desc }}</span>
+                      <span class="text-zinc-400 dark:text-zinc-500">{{ m.desc }}</span>
                     </button>
                   </div>
                 </div>
                 <!-- Custom model name -->
                 <div>
-                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">或手动输入模型名</label>
+                  <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">或手动输入模型名</label>
                   <input
                     v-model="settings.embeddingModel"
                     type="text"
                     placeholder="例如：gemma3、nomic-embed-text"
-                    class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     @blur="settings.save()"
                   />
                 </div>
@@ -1081,16 +1081,16 @@ async function importMarkdown() {
                   <button
                     @click="settings.testEmbeddingApi()"
                     :disabled="settings.isTestingEmbedding"
-                    class="flex items-center gap-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 border border-gray-200 dark:border-gray-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
+                    class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-500 border border-zinc-200 dark:border-zinc-500 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
                   >
                     <Loader       v-if="settings.isTestingEmbedding"                class="w-3 h-3 animate-spin" />
                     <CheckCircle  v-else-if="settings.embeddingTestResult === 'success'" class="w-3 h-3 text-emerald-500" />
                     <XCircle      v-else-if="settings.embeddingTestResult === 'fail'"    class="w-3 h-3 text-red-500" />
                     测试 Ollama 连接
                   </button>
-                  <span class="text-[11px] text-gray-400">
+                  <span class="text-[11px] text-zinc-400">
                     需先运行
-                    <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded font-mono">
+                    <code class="bg-zinc-200 dark:bg-zinc-600 px-1 rounded font-mono">
                       ollama pull {{ settings.embeddingModel || 'nomic-embed-text' }}
                     </code>
                   </span>
@@ -1101,12 +1101,12 @@ async function importMarkdown() {
 
               <!-- Model override (non-Ollama providers) -->
               <div v-if="settings.embeddingProvider !== 'ollama'">
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">模型名称</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">模型名称</label>
                 <input
                   v-model="settings.embeddingModel"
                   type="text"
                   placeholder="留空使用供应商默认模型"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   @blur="settings.save()"
                 />
               </div>
@@ -1114,30 +1114,30 @@ async function importMarkdown() {
           </div>
 
           <!-- ── 腾讯文档 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">📝</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium">腾讯文档</span>
-                  <span class="text-xs text-gray-400">docs.qq.com MCP</span>
+                  <span class="text-xs text-zinc-400">docs.qq.com MCP</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                     :class="settings.tencentDocsActive
                       ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400'
                       : settings.tencentDocsConfigured
                         ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'"
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'"
                   >{{ settings.tencentDocsActive ? '已激活' : settings.tencentDocsConfigured ? '已配置·已关闭' : '未配置' }}</span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-0.5">创建/编辑/管理腾讯文档、Excel、PPT、思维导图等云文档</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">创建/编辑/管理腾讯文档、Excel、PPT、思维导图等云文档</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="settings.tencentDocsPluginEnabled = !settings.tencentDocsPluginEnabled; settings.save()"
                   :disabled="!settings.tencentDocsConfigured"
                   class="transition-colors disabled:opacity-40"
-                  :class="settings.tencentDocsActive ? 'text-cyan-500 hover:text-cyan-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'"
+                  :class="settings.tencentDocsActive ? 'text-cyan-500 hover:text-cyan-600' : 'text-zinc-300 dark:text-zinc-600 hover:text-zinc-500'"
                   :title="settings.tencentDocsConfigured ? (settings.tencentDocsPluginEnabled ? '点击关闭' : '点击开启') : '请先配置 Token'"
                 >
                   <ToggleRight v-if="settings.tencentDocsActive" class="w-6 h-6" />
@@ -1145,7 +1145,7 @@ async function importMarkdown() {
                 </button>
                 <button
                   @click="tencentDocsExpanded = !tencentDocsExpanded"
-                  class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronDown class="w-4 h-4 transition-transform" :class="tencentDocsExpanded ? 'rotate-180' : ''" />
                 </button>
@@ -1153,17 +1153,17 @@ async function importMarkdown() {
             </div>
 
             <!-- 展开配置区 -->
-            <div v-if="tencentDocsExpanded" class="border-t border-gray-100 dark:border-gray-800 px-4 py-3 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+            <div v-if="tencentDocsExpanded" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
               <div>
-                <label class="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">腾讯文档 Token</label>
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">腾讯文档 Token</label>
                 <input
                   v-model="settings.tencentDocsToken"
                   type="password"
                   placeholder="32 位十六进制 Token，从腾讯文档授权页获取"
-                  class="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  class="w-full bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
                   @blur="settings.save()"
                 />
-                <p class="text-[11px] text-gray-400 mt-1">
+                <p class="text-[11px] text-zinc-400 mt-1">
                   前往
                   <a
                     href="https://docs.qq.com/scenario/open-claw.html?nlc=1"
@@ -1178,7 +1178,7 @@ async function importMarkdown() {
                 <button
                   @click="settings.testTencentDocs()"
                   :disabled="settings.isTestingTencentDocs || !settings.tencentDocsToken"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors disabled:opacity-40"
                 >
                   <span v-if="settings.isTestingTencentDocs" class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                   {{ settings.isTestingTencentDocs ? '连接中…' : '测试并启用' }}
@@ -1190,17 +1190,17 @@ async function importMarkdown() {
                   <XCircle class="w-3.5 h-3.5" /> {{ settings.tencentDocsTestError }}
                 </span>
               </div>
-              <div v-if="settings.tencentDocsActive" class="text-[11px] text-gray-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-100 dark:border-cyan-800 rounded-lg px-3 py-2">
+              <div v-if="settings.tencentDocsActive" class="text-[11px] text-zinc-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-100 dark:border-cyan-800 rounded-lg px-3 py-2">
                 ✅ 腾讯文档工具已接入 AI Chat。可在对话中说「帮我创建一个腾讯文档」或「把这段内容保存到腾讯文档」来使用。
               </div>
-              <div class="text-[11px] text-gray-400">
+              <div class="text-[11px] text-zinc-400">
                 支持：文档 / Excel / PPT / 思维导图 / 流程图 / 智能表格 / 网页剪藏 / OCR 图片识别
               </div>
             </div>
           </div>
 
           <!-- ── Agent 增强模式 ── -->
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
               <span class="text-xl shrink-0">🔓</span>
               <div class="flex-1 min-w-0">
@@ -1208,16 +1208,16 @@ async function importMarkdown() {
                   <span class="text-sm font-medium">Agent 增强模式</span>
                   <span v-if="settings.agentPowerMode" class="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full font-medium">已开启</span>
                 </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
                   开启后 Agent 可读取本地文件（read_file）、列出目录（list_dir），适合高级用户
                 </p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer shrink-0">
                 <input type="checkbox" class="sr-only peer" v-model="settings.agentPowerMode" @change="settings.save()" />
-                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                <div class="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
               </label>
             </div>
-            <div v-if="settings.agentPowerMode" class="border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 bg-orange-50 dark:bg-orange-900/10">
+            <div v-if="settings.agentPowerMode" class="border-t border-zinc-100 dark:border-zinc-800 px-4 py-2.5 bg-orange-50 dark:bg-orange-900/10">
               <p class="text-[11px] text-orange-600 dark:text-orange-400">
                 ⚠️ 增强模式下 Agent 可访问本地文件系统，请勿在不受信任的对话中启用。系统敏感路径（.ssh、密钥、凭证等）已被屏蔽。
               </p>
@@ -1225,7 +1225,7 @@ async function importMarkdown() {
           </div>
 
           <!-- Future plugins placeholder -->
-          <div class="border border-dashed border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex items-center gap-3 text-gray-400 dark:text-gray-600">
+          <div class="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 flex items-center gap-3 text-zinc-400 dark:text-zinc-600">
             <Plus class="w-4 h-4 shrink-0" />
             <div class="text-xs">
               <span class="font-medium">即将支持第三方插件</span>
@@ -1236,7 +1236,7 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 用户信息 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <User class="w-4 h-4 text-blue-500" />
@@ -1246,42 +1246,42 @@ async function importMarkdown() {
             class="text-xs px-2 py-0.5 rounded-full font-medium"
             :class="settings.userEnabled
               ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'"
+              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'"
           >{{ settings.userEnabled ? '已配置' : '未填写' }}</span>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           告诉 AI 你是谁，让每次对话都能从你的视角出发，而不是一个陌生人。
         </p>
         <div class="space-y-3">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">姓名 / 昵称</label>
+              <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">姓名 / 昵称</label>
               <input
                 v-model="settings.userName"
                 type="text"
                 placeholder="你的名字"
-                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 @blur="settings.save()"
               />
             </div>
             <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">职业 / 身份</label>
+              <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">职业 / 身份</label>
               <input
                 v-model="settings.userRole"
                 type="text"
                 placeholder="如：产品设计师、工程师…"
-                class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 @blur="settings.save()"
               />
             </div>
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1.5">背景信息</label>
+            <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">背景信息</label>
             <textarea
               v-model="settings.userContext"
               rows="3"
               placeholder="关注领域、工作背景、偏好风格……AI 会根据这些信息调整回答方式"
-              class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               @blur="settings.save()"
             />
           </div>
@@ -1289,7 +1289,7 @@ async function importMarkdown() {
       </section>
 
       <!-- ── Agent 灵魂 (SOUL) ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <Bot class="w-4 h-4 text-purple-500" />
@@ -1299,10 +1299,10 @@ async function importMarkdown() {
             class="text-xs px-2 py-0.5 rounded-full font-medium"
             :class="settings.soulEnabled
               ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'"
+              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'"
           >{{ settings.soulEnabled ? '已自定义' : '默认提示词' }}</span>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           定义 AI 助手的身份、风格与行为准则（Markdown 格式），内容会作为系统提示注入到每次对话开头。
         </p>
 
@@ -1311,11 +1311,11 @@ async function importMarkdown() {
             v-model="settings.soulContent"
             rows="12"
             placeholder="用 Markdown 描述你的 AI 助手身份……&#10;&#10;例如：&#10;你是一位专注技术研究的 AI 助手，回答简洁精准……"
-            class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600"
+            class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 dark:placeholder-zinc-600"
             @blur="saveSoul()"
           />
           <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-400 dark:text-gray-500">
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">
               {{ settings.soulContent.length }} 字符
               <span v-if="settings.soulEnabled">· 已注入系统提示</span>
             </span>
@@ -1328,7 +1328,7 @@ async function importMarkdown() {
               <button
                 v-if="settings.soulEnabled"
                 @click="settings.soulContent = ''; saveSoul()"
-                class="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
+                class="text-xs px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors"
               >清空</button>
             </div>
           </div>
@@ -1345,7 +1345,7 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 记忆管理 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <Brain class="w-4 h-4 text-rose-500" />
@@ -1359,7 +1359,7 @@ async function importMarkdown() {
             class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 font-medium"
             :class="memoriesStore.consolidating
               ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-500'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400'"
+              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400'"
             title="让 AI 合并相似记忆、删除过时内容"
           >
             <Loader v-if="memoriesStore.consolidating" class="w-3.5 h-3.5 animate-spin" />
@@ -1367,18 +1367,18 @@ async function importMarkdown() {
             整理记忆
           </button>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           Agent 会在对话中自动保存重要信息，并在后续对话中自动加载。📌 固定的记忆始终出现在上下文中。
         </p>
 
         <!-- Add memory -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 mb-4 space-y-2">
+        <div class="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 mb-4 space-y-2">
           <div class="flex gap-2">
             <input
               v-model="newMemContent"
               type="text"
               placeholder="手动添加一条记忆…"
-              class="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+              class="flex-1 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
               @keydown.enter="addMemory"
             />
             <button
@@ -1392,33 +1392,33 @@ async function importMarkdown() {
           <div class="flex items-center gap-2">
             <select
               v-model="newMemCategory"
-              class="text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 focus:outline-none"
+              class="text-xs bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2 py-1 focus:outline-none"
             >
               <option v-for="c in MEMORY_CATEGORIES" :key="c.id" :value="c.id">{{ c.label }}</option>
             </select>
-            <span class="text-xs text-gray-400">重要性</span>
+            <span class="text-xs text-zinc-400">重要性</span>
             <input v-model.number="newMemImportance" type="range" min="1" max="10" step="1" class="w-20 accent-rose-500" />
-            <span class="text-xs font-mono text-gray-500 w-4">{{ newMemImportance }}</span>
+            <span class="text-xs font-mono text-zinc-500 w-4">{{ newMemImportance }}</span>
           </div>
         </div>
 
         <!-- Search -->
         <div class="relative mb-3">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
           <input
             v-model="memSearchQuery"
             type="text"
             placeholder="搜索记忆…"
-            class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl pl-8 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+            class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-8 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
             @input="searchMemories"
           />
           <button v-if="memSearchQuery" @click="memSearchQuery = ''; memSearchResults = []" class="absolute right-3 top-1/2 -translate-y-1/2">
-            <X class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
+            <X class="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-600" />
           </button>
         </div>
 
         <!-- Empty state -->
-        <div v-if="!displayedMemories.length" class="text-center py-8 text-gray-400 dark:text-gray-600">
+        <div v-if="!displayedMemories.length" class="text-center py-8 text-zinc-400 dark:text-zinc-600">
           <Brain class="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p class="text-sm">暂无记忆。在对话中 Agent 会自动保存重要信息，或在上方手动添加。</p>
         </div>
@@ -1431,7 +1431,7 @@ async function importMarkdown() {
             class="group flex items-start gap-2.5 rounded-xl p-2.5 border transition-colors"
             :class="mem.isPinned
               ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700'
-              : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-rose-200 dark:hover:border-rose-700'"
+              : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 hover:border-rose-200 dark:hover:border-rose-700'"
           >
             <!-- Category dot / pin indicator -->
             <span
@@ -1446,15 +1446,15 @@ async function importMarkdown() {
             <div class="flex-1 min-w-0">
               <!-- View mode -->
               <template v-if="memEditingId !== mem.id">
-                <p class="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{{ mem.content }}</p>
+                <p class="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{{ mem.content }}</p>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
-                  <span class="text-[10px] text-gray-400">
+                  <span class="text-[10px] text-zinc-400">
                     {{ MEMORY_CATEGORIES.find(c => c.id === mem.category)?.label }}
                   </span>
                   <span class="flex items-center gap-0.5 text-[10px] text-amber-500">
                     <Star class="w-2.5 h-2.5 fill-current" />{{ mem.importance }}
                   </span>
-                  <span v-if="mem.recallCount > 0" class="text-[10px] text-gray-400">
+                  <span v-if="mem.recallCount > 0" class="text-[10px] text-zinc-400">
                     召回 {{ mem.recallCount }} 次
                   </span>
                   <span v-if="mem.isPinned" class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">📌 固定</span>
@@ -1465,13 +1465,13 @@ async function importMarkdown() {
                 <input
                   v-model="memEditContent"
                   type="text"
-                  class="w-full text-xs bg-white dark:bg-gray-700 border border-rose-300 rounded-lg px-2 py-1 focus:outline-none"
+                  class="w-full text-xs bg-white dark:bg-zinc-700 border border-rose-300 rounded-lg px-2 py-1 focus:outline-none"
                   @keydown.enter="saveEditMem(mem.id)"
                   @keydown.esc="memEditingId = null"
                 />
                 <div class="flex gap-1 mt-1">
                   <button @click="saveEditMem(mem.id)" class="text-[10px] px-2 py-0.5 bg-rose-500 text-white rounded-lg">保存</button>
-                  <button @click="memEditingId = null" class="text-[10px] px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded-lg">取消</button>
+                  <button @click="memEditingId = null" class="text-[10px] px-2 py-0.5 bg-zinc-200 dark:bg-zinc-600 rounded-lg">取消</button>
                 </div>
               </template>
             </div>
@@ -1482,25 +1482,25 @@ async function importMarkdown() {
                 class="p-1 rounded-lg transition-colors"
                 :class="mem.isPinned
                   ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30'
-                  : 'text-gray-400 hover:text-amber-500 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                  : 'text-zinc-400 hover:text-amber-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'"
                 :title="mem.isPinned ? '取消固定' : '固定到上下文'"
               >
                 <Bookmark class="w-3 h-3" :class="mem.isPinned ? 'fill-current' : ''" />
               </button>
               <!-- Edit -->
-              <button @click="startEditMem(mem)" class="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
+              <button @click="startEditMem(mem)" class="p-1 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 transition-colors">
                 <Pencil class="w-3 h-3" />
               </button>
               <!-- Archive -->
               <button
                 @click="memoriesStore.archive(mem.id)"
-                class="p-1 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-gray-400 hover:text-orange-500 transition-colors"
+                class="p-1 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-zinc-400 hover:text-orange-500 transition-colors"
                 title="归档（停止加载，不删除）"
               >
                 <Archive class="w-3 h-3" />
               </button>
               <!-- Delete -->
-              <button @click="deleteMem(mem.id)" class="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+              <button @click="deleteMem(mem.id)" class="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition-colors">
                 <Trash2 class="w-3 h-3" />
               </button>
             </div>
@@ -1508,10 +1508,10 @@ async function importMarkdown() {
         </div>
 
         <!-- Archived memories section -->
-        <div class="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+        <div class="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3">
           <button
             @click="memoriesStore.showArchived = !memoriesStore.showArchived"
-            class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors w-full"
+            class="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors w-full"
           >
             <Archive class="w-3.5 h-3.5" />
             <span>归档记忆（{{ memoriesStore.archivedMemories.length }} 条）</span>
@@ -1521,33 +1521,33 @@ async function importMarkdown() {
             <div
               v-for="mem in memoriesStore.archivedMemories"
               :key="mem.id"
-              class="group flex items-start gap-2.5 bg-gray-50/50 dark:bg-gray-800/50 rounded-xl p-2.5 border border-dashed border-gray-200 dark:border-gray-700 opacity-60 hover:opacity-100 transition-opacity"
+              class="group flex items-start gap-2.5 bg-zinc-50/50 dark:bg-zinc-800/50 rounded-xl p-2.5 border border-dashed border-zinc-200 dark:border-zinc-700 opacity-60 hover:opacity-100 transition-opacity"
             >
               <span class="mt-1 w-2 h-2 rounded-full shrink-0 bg-zinc-300 dark:bg-zinc-600" />
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ mem.content }}</p>
-                <span class="text-[10px] text-gray-400">{{ MEMORY_CATEGORIES.find(c => c.id === mem.category)?.label }}</span>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ mem.content }}</p>
+                <span class="text-[10px] text-zinc-400">{{ MEMORY_CATEGORIES.find(c => c.id === mem.category)?.label }}</span>
               </div>
               <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 <button
                   @click="memoriesStore.restore(mem.id)"
-                  class="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-gray-400 hover:text-emerald-500 transition-colors"
+                  class="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-zinc-400 hover:text-emerald-500 transition-colors"
                   title="恢复到活跃记忆"
                 >
                   <ArchiveRestore class="w-3 h-3" />
                 </button>
-                <button @click="memoriesStore.remove(mem.id)" class="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+                <button @click="memoriesStore.remove(mem.id)" class="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition-colors">
                   <Trash2 class="w-3 h-3" />
                 </button>
               </div>
             </div>
           </div>
-          <div v-else-if="memoriesStore.showArchived" class="mt-2 text-center py-4 text-xs text-gray-400">暂无归档记忆</div>
+          <div v-else-if="memoriesStore.showArchived" class="mt-2 text-center py-4 text-xs text-zinc-400">暂无归档记忆</div>
         </div>
       </section>
 
       <!-- ── 技能库 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <Sparkles class="w-4 h-4 text-amber-500" />
@@ -1559,12 +1559,12 @@ async function importMarkdown() {
             <Plus class="w-3.5 h-3.5" />新建技能
           </button>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           技能会在用户输入命中触发关键词时自动激活，将附加指令注入当次对话。对话中调用 3 次以上工具后，AI 会自动提炼技能供你保存。
         </p>
 
         <!-- Empty state -->
-        <div v-if="!skillsStore.skills.length" class="text-center py-8 text-gray-400 dark:text-gray-600">
+        <div v-if="!skillsStore.skills.length" class="text-center py-8 text-zinc-400 dark:text-zinc-600">
           <Sparkles class="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p class="text-sm">暂无技能，点击「新建技能」手动创建，或在对话中调用工具后等待 AI 自动提炼</p>
         </div>
@@ -1572,19 +1572,19 @@ async function importMarkdown() {
         <!-- Skills list -->
         <div v-else class="space-y-2">
           <div v-for="skill in skillsStore.skills" :key="skill.id"
-            class="group flex items-start gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700 transition-colors">
+            class="group flex items-start gap-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 border border-zinc-100 dark:border-zinc-700 hover:border-amber-200 dark:hover:border-amber-700 transition-colors">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-0.5">
-                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ skill.name }}</span>
+                <span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ skill.name }}</span>
                 <span class="text-xs px-1.5 py-0.5 rounded-full"
                   :class="skill.source === 'auto'
                     ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'">
+                    : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'">
                   {{ skill.source === 'auto' ? 'AI 提炼' : '手动' }}
                 </span>
-                <span class="text-xs text-gray-400">{{ skill.usageCount }} 次</span>
+                <span class="text-xs text-zinc-400">{{ skill.usageCount }} 次</span>
               </div>
-              <p v-if="skill.description" class="text-xs text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-1">{{ skill.description }}</p>
+              <p v-if="skill.description" class="text-xs text-zinc-500 dark:text-zinc-400 mb-1.5 line-clamp-1">{{ skill.description }}</p>
               <div class="flex flex-wrap gap-1">
                 <span v-for="kw in kwList(skill)" :key="kw"
                   class="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-full">
@@ -1593,10 +1593,10 @@ async function importMarkdown() {
               </div>
             </div>
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <button @click="openEditSkill(skill)" class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <button @click="openEditSkill(skill)" class="p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
                 <Pencil class="w-3.5 h-3.5" />
               </button>
-              <button @click="deleteSkill(skill.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+              <button @click="deleteSkill(skill.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition-colors">
                 <Trash2 class="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1605,7 +1605,7 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 插件系统 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <Puzzle class="w-4 h-4 text-blue-500" />
@@ -1617,12 +1617,12 @@ async function importMarkdown() {
             <Plus class="w-3.5 h-3.5" />添加插件
           </button>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
           通过 HTTP Webhook 扩展 DeepSeek 能力，将任意外部服务（Notion、Slack、自建 API 等）接入 Agent 工具链。
         </p>
 
         <!-- Empty state -->
-        <div v-if="!pluginsStore.plugins.length" class="text-center py-8 text-gray-400 dark:text-gray-600">
+        <div v-if="!pluginsStore.plugins.length" class="text-center py-8 text-zinc-400 dark:text-zinc-600">
           <Puzzle class="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p class="text-sm">暂无插件，点击「添加插件」接入外部服务</p>
         </div>
@@ -1630,18 +1630,18 @@ async function importMarkdown() {
         <!-- Plugins list -->
         <div v-else class="space-y-2">
           <div v-for="plugin in pluginsStore.plugins" :key="plugin.id"
-            class="group flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 transition-colors"
+            class="group flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 border border-zinc-100 dark:border-zinc-700 transition-colors"
             :class="plugin.enabled ? 'hover:border-blue-200 dark:hover:border-blue-700' : 'opacity-60'">
             <!-- Toggle -->
-            <button @click="pluginsStore.toggle(plugin.id)" class="shrink-0 text-gray-400 transition-colors"
-              :class="plugin.enabled ? 'text-blue-500 hover:text-blue-600' : 'hover:text-gray-600 dark:hover:text-gray-300'">
+            <button @click="pluginsStore.toggle(plugin.id)" class="shrink-0 text-zinc-400 transition-colors"
+              :class="plugin.enabled ? 'text-blue-500 hover:text-blue-600' : 'hover:text-zinc-600 dark:hover:text-zinc-300'">
               <ToggleRight v-if="plugin.enabled" class="w-5 h-5" />
               <ToggleLeft  v-else                class="w-5 h-5" />
             </button>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-0.5">
-                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ plugin.displayName }}</span>
-                <code class="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded font-mono">{{ plugin.name }}</code>
+                <span class="text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ plugin.displayName }}</span>
+                <code class="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded font-mono">{{ plugin.name }}</code>
                 <span class="text-xs px-1.5 py-0.5 rounded-full"
                   :class="plugin.method === 'POST'
                     ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
@@ -1649,14 +1649,14 @@ async function importMarkdown() {
                   {{ plugin.method }}
                 </span>
               </div>
-              <p v-if="plugin.description" class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ plugin.description }}</p>
-              <p class="text-[11px] text-gray-400 font-mono truncate mt-0.5">{{ plugin.endpointUrl }}</p>
+              <p v-if="plugin.description" class="text-xs text-zinc-500 dark:text-zinc-400 truncate">{{ plugin.description }}</p>
+              <p class="text-[11px] text-zinc-400 font-mono truncate mt-0.5">{{ plugin.endpointUrl }}</p>
             </div>
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <button @click="openEditPlugin(plugin)" class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <button @click="openEditPlugin(plugin)" class="p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
                 <Pencil class="w-3.5 h-3.5" />
               </button>
-              <button @click="deletePlugin(plugin.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+              <button @click="deletePlugin(plugin.id)" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition-colors">
                 <Trash2 class="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1665,37 +1665,37 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 界面偏好 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">界面偏好</h2>
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">界面偏好</h2>
         <div class="flex gap-2">
           <button
             @click="uiStore.isDark = false"
             class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all"
             :class="!uiStore.isDark
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'"
+              : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'"
           ><Sun class="w-4 h-4" />浅色</button>
           <button
             @click="uiStore.isDark = true"
             class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all"
             :class="uiStore.isDark
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'"
+              : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'"
           ><Moon class="w-4 h-4" />深色</button>
         </div>
       </section>
 
       <!-- ── 数据管理 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">数据管理</h2>
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">数据管理</h2>
 
         <div class="space-y-3">
           <!-- Export -->
           <div>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wider">导出</p>
+            <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-2 font-medium uppercase tracking-wider">导出</p>
             <div class="grid grid-cols-2 gap-2">
               <button
-                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm transition-all text-left"
+                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm transition-all text-left"
                 :disabled="opLoading === 'exportJson'"
                 @click="exportJson"
               >
@@ -1704,13 +1704,13 @@ async function importMarkdown() {
                   <FileJson v-else class="w-3.5 h-3.5 text-blue-500" />
                 </span>
                 <div>
-                  <div class="font-medium text-gray-800 dark:text-gray-200 text-xs">JSON 全量备份</div>
-                  <div class="text-[11px] text-gray-400">含笔记 + 分类 + 标签</div>
+                  <div class="font-medium text-zinc-800 dark:text-zinc-200 text-xs">JSON 全量备份</div>
+                  <div class="text-[11px] text-zinc-400">含笔记 + 分类 + 标签</div>
                 </div>
               </button>
 
               <button
-                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-sm transition-all text-left"
+                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-sm transition-all text-left"
                 :disabled="opLoading === 'exportMd'"
                 @click="exportMarkdown"
               >
@@ -1719,8 +1719,8 @@ async function importMarkdown() {
                   <FolderOpen v-else class="w-3.5 h-3.5 text-emerald-500" />
                 </span>
                 <div>
-                  <div class="font-medium text-gray-800 dark:text-gray-200 text-xs">Markdown 文件</div>
-                  <div class="text-[11px] text-gray-400">每篇笔记导出为 .md</div>
+                  <div class="font-medium text-zinc-800 dark:text-zinc-200 text-xs">Markdown 文件</div>
+                  <div class="text-[11px] text-zinc-400">每篇笔记导出为 .md</div>
                 </div>
               </button>
             </div>
@@ -1728,10 +1728,10 @@ async function importMarkdown() {
 
           <!-- Import -->
           <div>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wider">导入</p>
+            <p class="text-xs text-zinc-400 dark:text-zinc-500 mb-2 font-medium uppercase tracking-wider">导入</p>
             <div class="grid grid-cols-2 gap-2">
               <button
-                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm transition-all text-left"
+                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm transition-all text-left"
                 :disabled="opLoading === 'importJson'"
                 @click="importJson"
               >
@@ -1740,13 +1740,13 @@ async function importMarkdown() {
                   <Upload v-else class="w-3.5 h-3.5 text-purple-500" />
                 </span>
                 <div>
-                  <div class="font-medium text-gray-800 dark:text-gray-200 text-xs">还原 JSON 备份</div>
-                  <div class="text-[11px] text-gray-400">合并导入，不覆盖</div>
+                  <div class="font-medium text-zinc-800 dark:text-zinc-200 text-xs">还原 JSON 备份</div>
+                  <div class="text-[11px] text-zinc-400">合并导入，不覆盖</div>
                 </div>
               </button>
 
               <button
-                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-sm transition-all text-left"
+                class="flex items-center gap-2 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-orange-400 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-sm transition-all text-left"
                 :disabled="opLoading === 'importMd'"
                 @click="importMarkdown"
               >
@@ -1755,8 +1755,8 @@ async function importMarkdown() {
                   <BookOpen v-else class="w-3.5 h-3.5 text-orange-500" />
                 </span>
                 <div>
-                  <div class="font-medium text-gray-800 dark:text-gray-200 text-xs">导入 Markdown</div>
-                  <div class="text-[11px] text-gray-400">选择 .md / .txt 文件</div>
+                  <div class="font-medium text-zinc-800 dark:text-zinc-200 text-xs">导入 Markdown</div>
+                  <div class="text-[11px] text-zinc-400">选择 .md / .txt 文件</div>
                 </div>
               </button>
             </div>
@@ -1765,7 +1765,7 @@ async function importMarkdown() {
       </section>
 
       <!-- ── WebDAV 同步 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
         <div class="px-5 py-4 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <Cloud class="w-4 h-4 text-blue-500" />
@@ -1773,11 +1773,11 @@ async function importMarkdown() {
             <span v-if="settings.webdavConfigured" class="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full font-medium">已配置</span>
           </div>
           <div class="flex items-center gap-2">
-            <span v-if="settings.webdavLastSync" class="text-xs text-gray-400">
+            <span v-if="settings.webdavLastSync" class="text-xs text-zinc-400">
               上次同步 {{ new Date(settings.webdavLastSync).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) }}
             </span>
             <button
-              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               :disabled="settings.webdavSyncing || !settings.webdavConfigured"
               @click="settings.runWebDavSync()"
             >
@@ -1788,34 +1788,34 @@ async function importMarkdown() {
           </div>
         </div>
 
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+        <div class="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4 space-y-3 bg-zinc-50 dark:bg-zinc-800/50">
           <div class="grid grid-cols-1 gap-3">
             <div>
-              <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">WebDAV URL</label>
+              <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">WebDAV URL</label>
               <input
                 v-model="settings.webdavUrl"
                 placeholder="https://webdav.example.com"
-                class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400 dark:focus:border-blue-500"
+                class="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-400 dark:focus:border-blue-500"
                 @blur="settings.save()"
               />
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">用户名</label>
+                <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">用户名</label>
                 <input
                   v-model="settings.webdavUser"
                   placeholder="username"
-                  class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                  class="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-400"
                   @blur="settings.save()"
                 />
               </div>
               <div>
-                <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">密码</label>
+                <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">密码</label>
                 <input
                   v-model="settings.webdavPass"
                   type="password"
                   placeholder="••••••••"
-                  class="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:border-blue-400"
+                  class="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-400"
                   @blur="settings.save()"
                 />
               </div>
@@ -1824,7 +1824,7 @@ async function importMarkdown() {
 
           <div class="flex items-center gap-3">
             <button
-              class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+              class="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
               :disabled="settings.isTestingWebdav || !settings.webdavUrl"
               @click="settings.testWebDavConnection()"
             >
@@ -1852,17 +1852,17 @@ async function importMarkdown() {
       </section>
 
       <!-- ── 快捷键参考 ── -->
-      <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">键盘快捷键</h2>
+      <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+        <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">键盘快捷键</h2>
         <div class="space-y-2">
           <div v-for="sc in shortcuts" :key="sc.key" class="flex items-center justify-between">
-            <span class="text-sm text-gray-600 dark:text-gray-400">{{ sc.desc }}</span>
-            <kbd class="text-xs px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 font-mono">{{ sc.key }}</kbd>
+            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ sc.desc }}</span>
+            <kbd class="text-xs px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-mono">{{ sc.key }}</kbd>
           </div>
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v{{ appVersion }}</div>
+      <div class="text-center text-xs text-zinc-400 dark:text-zinc-600 pb-2">DeepSeek Notes v{{ appVersion }}</div>
     </div>
   </div>
 

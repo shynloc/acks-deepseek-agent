@@ -3,28 +3,28 @@
     <div
       :class="props.inline
         ? 'contents'
-        : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'"
+        : 'fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'"
       @click.self="props.inline ? undefined : handleClose()"
     >
       <div
-        class="bg-white dark:bg-gray-900 flex flex-col overflow-hidden"
+        class="bg-white dark:bg-zinc-900 flex flex-col overflow-hidden"
         :class="props.inline
           ? 'h-full w-full'
           : 'relative w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl'"
       >
 
         <!-- ── Title bar ── -->
-        <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <div class="flex items-center gap-3 px-5 py-3 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
           <input
             v-model="form.title"
             placeholder="笔记标题…"
-            class="flex-1 text-lg font-semibold bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600 text-gray-900 dark:text-gray-100"
+            class="flex-1 text-lg font-semibold bg-transparent outline-none placeholder-zinc-300 dark:placeholder-zinc-600 text-zinc-900 dark:text-zinc-100"
           />
 
           <!-- Category select -->
           <select
             v-model="form.categoryId"
-            class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none"
+            class="text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 outline-none"
           >
             <option value="">无分类</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
@@ -36,7 +36,7 @@
               v-for="[key, hex] in colorOptions"
               :key="key"
               class="w-4 h-4 rounded-full border-2 transition-transform hover:scale-125"
-              :class="form.color === key ? 'border-gray-600 dark:border-gray-200' : 'border-transparent'"
+              :class="form.color === key ? 'border-zinc-600 dark:border-zinc-200' : 'border-transparent'"
               :style="hex ? { background: hex } : { background: '#e5e7eb' }"
               :title="key"
               @click="form.color = key"
@@ -46,7 +46,7 @@
           <!-- Theme -->
           <select
             v-model="currentTheme"
-            class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none"
+            class="text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 outline-none"
           >
             <option value="clean">清隽阅读</option>
             <option value="business">商务报告</option>
@@ -64,12 +64,12 @@
           </select>
 
           <!-- View mode toggle -->
-          <div class="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
+          <div class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs">
             <button
               v-for="m in viewModes"
               :key="m.key"
               class="px-2 py-1 transition-colors"
-              :class="viewMode === m.key ? 'bg-blue-500 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
+              :class="viewMode === m.key ? 'bg-blue-500 text-white' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
               @click="viewMode = m.key"
             >{{ m.label }}</button>
           </div>
@@ -77,34 +77,34 @@
           <!-- Version history toggle (existing notes only) -->
           <button
             v-if="props.note?.id"
-            class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            class="p-1.5 rounded-lg text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             title="历史版本"
             @click="toggleVersions"
           >
             <History class="w-4 h-4" />
           </button>
 
-          <button class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" @click="handleClose">
+          <button class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800" @click="handleClose">
             <X class="w-4 h-4" />
           </button>
         </div>
 
         <!-- ── Toolbar ── -->
-        <div class="flex items-center gap-1 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 shrink-0 flex-wrap">
+        <div class="flex items-center gap-1 px-4 py-1.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 shrink-0 flex-wrap">
           <template v-for="item in toolbar" :key="item.label">
-            <div v-if="item.sep" class="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+            <div v-if="item.sep" class="w-px h-4 bg-zinc-200 dark:bg-zinc-700 mx-1" />
             <button
               v-else
-              class="px-2 py-1 rounded text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 font-medium transition-colors"
+              class="px-2 py-1 rounded text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-medium transition-colors"
               :title="item.label"
               @click="applyFormat(item)"
             >{{ item.icon }}</button>
           </template>
 
-          <div class="ml-auto flex items-center gap-2 text-xs text-gray-400">
+          <div class="ml-auto flex items-center gap-2 text-xs text-zinc-400">
             <!-- Image upload button -->
             <button
-              class="flex items-center gap-1 px-2 py-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              class="flex items-center gap-1 px-2 py-1 rounded text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
               :class="uploadingImage ? 'opacity-50 cursor-not-allowed' : ''"
               :disabled="uploadingImage"
               title="插入图片（拖拽或粘贴也可）"
@@ -119,7 +119,7 @@
               class="flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs font-medium"
               :class="form.visibility === 'public'
                 ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
-                : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                : 'text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'"
               :title="form.visibility === 'public' ? '公开笔记 — 图片上传到图床' : '私有笔记 — 图片上传到 Memos'"
               @click="form.visibility = form.visibility === 'private' ? 'public' : 'private'"
             >
@@ -132,26 +132,26 @@
         </div>
 
         <!-- ── Tags row ── -->
-        <div class="flex items-center gap-2 px-5 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0 flex-wrap">
-          <Tag class="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <div class="flex items-center gap-2 px-5 py-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0 flex-wrap">
+          <Tag class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <button
             v-for="tag in availableTags"
             :key="tag.id"
             class="text-xs px-2 py-0.5 rounded-full border transition-all"
             :class="isTagSelected(tag.id)
               ? `border-transparent ${tagSelectedClass(tag.color)}`
-              : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'"
+              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400'"
             @click="toggleTag(tag)"
           >{{ tag.name }}</button>
           <button
-            class="text-xs px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-all"
+            class="text-xs px-2 py-0.5 rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 hover:border-blue-400 hover:text-blue-400 transition-all"
             @click="showNewTag = !showNewTag"
           >+ 新标签</button>
           <div v-if="showNewTag" class="flex items-center gap-1">
             <input
               v-model="newTagName"
               placeholder="标签名"
-              class="text-xs border border-gray-200 dark:border-gray-700 rounded px-2 py-0.5 w-20 bg-transparent outline-none dark:text-gray-300"
+              class="text-xs border border-zinc-200 dark:border-zinc-700 rounded px-2 py-0.5 w-20 bg-transparent outline-none dark:text-zinc-300"
               @keydown.enter="createNewTag"
               @keydown.escape="showNewTag = false"
             />
@@ -165,7 +165,7 @@
           <div
             v-if="viewMode !== 'preview'"
             class="flex flex-col relative"
-            :class="viewMode === 'split' ? 'w-1/2 border-r border-gray-200 dark:border-gray-700' : 'w-full'"
+            :class="viewMode === 'split' ? 'w-1/2 border-r border-zinc-200 dark:border-zinc-700' : 'w-full'"
             @dragover.prevent="isDraggingOver = true"
             @dragleave="isDraggingOver = false"
             @drop.prevent="handleImageDrop"
@@ -183,7 +183,7 @@
             <textarea
               ref="editorRef"
               v-model="form.content"
-              class="flex-1 resize-none p-5 text-sm font-mono bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none placeholder-gray-300 dark:placeholder-gray-600 leading-relaxed"
+              class="flex-1 resize-none p-5 text-sm font-mono bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 outline-none placeholder-zinc-300 dark:placeholder-zinc-600 leading-relaxed"
               placeholder="开始写作… 支持 Markdown 语法"
               @input="onContentInput"
               @keydown="handleEditorKeydown"
@@ -197,7 +197,7 @@
             class="flex-1 overflow-y-auto flex flex-col"
             :class="viewMode === 'split' ? '' : 'w-full'"
           >
-            <div class="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+            <div class="flex-1 overflow-y-auto bg-white dark:bg-zinc-900">
               <div
                 class="md-preview min-h-full p-6"
                 :class="`theme-${currentTheme}`"
@@ -211,25 +211,25 @@
           <Transition name="slide-right">
             <div
               v-if="showVersions"
-              class="absolute right-0 top-0 bottom-0 w-64 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col z-10 shadow-xl"
+              class="absolute right-0 top-0 bottom-0 w-64 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700 flex flex-col z-10 shadow-xl"
             >
-              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">历史版本</span>
-                <button @click="showVersions = false" class="text-gray-400 hover:text-gray-600"><X class="w-3.5 h-3.5" /></button>
+              <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
+                <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">历史版本</span>
+                <button @click="showVersions = false" class="text-zinc-400 hover:text-zinc-600"><X class="w-3.5 h-3.5" /></button>
               </div>
 
               <div class="flex-1 overflow-y-auto">
-                <div v-if="versionsLoading" class="p-4 text-center text-xs text-gray-400">加载中…</div>
-                <div v-else-if="!versions.length" class="p-4 text-center text-xs text-gray-400">暂无历史版本<br><span class="text-[11px]">编辑并保存后会自动记录版本</span></div>
+                <div v-if="versionsLoading" class="p-4 text-center text-xs text-zinc-400">加载中…</div>
+                <div v-else-if="!versions.length" class="p-4 text-center text-xs text-zinc-400">暂无历史版本<br><span class="text-[11px]">编辑并保存后会自动记录版本</span></div>
                 <button
                   v-for="v in versions"
                   :key="v.id"
-                  class="w-full text-left px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  class="w-full text-left px-4 py-3 border-b border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                   :class="selectedVersionId === v.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
                   @click="previewVersion(v)"
                 >
-                  <div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{{ v.title || '无标题' }}</div>
-                  <div class="text-[11px] text-gray-400 mt-0.5">{{ formatVersionDate(v.savedAt) }}</div>
+                  <div class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{{ v.title || '无标题' }}</div>
+                  <div class="text-[11px] text-zinc-400 mt-0.5">{{ formatVersionDate(v.savedAt) }}</div>
                   <button
                     v-if="selectedVersionId === v.id"
                     class="mt-1.5 text-[11px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors"
@@ -248,14 +248,14 @@
         </div>
 
         <!-- ── Footer ── -->
-        <div class="flex items-center justify-between px-5 py-3 border-t border-gray-200 dark:border-gray-700 shrink-0">
-          <div class="flex items-center gap-3 text-xs text-gray-400">
+        <div class="flex items-center justify-between px-5 py-3 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div class="flex items-center gap-3 text-xs text-zinc-400">
             <span v-if="form.updatedAt">最后更新 {{ formatDate(form.updatedAt) }}</span>
             <Transition name="autosave">
               <span
                 v-if="autoSaveStatus !== 'idle'"
                 class="flex items-center gap-1 transition-all"
-                :class="autoSaveStatus === 'saved' ? 'text-emerald-500' : 'text-gray-400'"
+                :class="autoSaveStatus === 'saved' ? 'text-emerald-500' : 'text-zinc-400'"
               >
                 <span v-if="autoSaveStatus === 'pending'" class="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />
                 <CheckCircle2 v-else class="w-2.5 h-2.5" />
@@ -265,7 +265,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button
-              class="px-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              class="px-4 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               @click="handleClose"
             >取消</button>
             <button
@@ -280,7 +280,7 @@
               class="px-4 py-1.5 text-sm rounded-lg border transition-all flex items-center gap-1.5"
               :class="wechatCopied
                 ? 'border-emerald-400 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-600 dark:hover:text-green-400'"
+                : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-green-400 hover:text-green-600 dark:hover:text-green-400'"
               :disabled="wechatCopying"
               :title="`以「${themeLabel}」样式复制到微信公众号`"
               @click="handleWechatCopy"
@@ -295,17 +295,17 @@
       <!-- 放弃未保存的新笔记前确认 —— 新笔记没有 id，不受自动保存保护 -->
       <div
         v-if="showDiscardConfirm"
-        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-confirm flex items-center justify-center bg-black/50 backdrop-blur-sm"
         @click.self="showDiscardConfirm = false"
       >
-        <div class="w-80 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-2xl">
-          <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">放弃这篇笔记？</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+        <div class="w-80 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-6 shadow-2xl">
+          <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 mb-2">放弃这篇笔记？</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
             这是一篇尚未保存的新笔记，关闭后已输入的内容将无法找回。
           </p>
           <div class="flex gap-2 justify-end">
             <button
-              class="px-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              class="px-4 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
               @click="showDiscardConfirm = false"
             >继续编辑</button>
             <button

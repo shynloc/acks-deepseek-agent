@@ -39,11 +39,11 @@ function finish() {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div class="relative w-full max-w-md mx-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+    <div class="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div class="relative w-full max-w-md mx-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden">
 
         <!-- Progress bar -->
-        <div class="h-1 bg-gray-100 dark:bg-gray-800">
+        <div class="h-1 bg-zinc-100 dark:bg-zinc-800">
           <div
             class="h-full bg-blue-500 transition-all duration-500"
             :style="{ width: `${((step + 1) / steps.length) * 100}%` }"
@@ -61,17 +61,17 @@ function finish() {
           </div>
 
           <!-- Title -->
-          <h2 class="text-xl font-bold mb-3 text-gray-900 dark:text-gray-100">
+          <h2 class="text-xl font-bold mb-3 text-zinc-900 dark:text-zinc-100">
             {{ steps[step].title }}
           </h2>
 
           <!-- Desc -->
-          <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
+          <p class="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed mb-3">
             {{ steps[step].desc }}
           </p>
 
           <!-- Sub -->
-          <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+          <p class="text-xs text-zinc-400 dark:text-zinc-500 italic">
             {{ steps[step].sub }}
           </p>
         </div>
@@ -84,7 +84,7 @@ function finish() {
               v-for="(_, i) in steps"
               :key="i"
               class="rounded-full transition-all duration-300"
-              :class="i === step ? 'w-4 h-2 bg-blue-500' : 'w-2 h-2 bg-gray-200 dark:bg-gray-700'"
+              :class="i === step ? 'w-4 h-2 bg-blue-500' : 'w-2 h-2 bg-zinc-200 dark:bg-zinc-700'"
               @click="step = i"
             />
           </div>
@@ -92,7 +92,7 @@ function finish() {
           <div class="flex items-center gap-2">
             <button
               v-if="step > 0"
-              class="flex items-center gap-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              class="flex items-center gap-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               @click="step--"
             >
               <ChevronLeft class="w-3.5 h-3.5" />上一步
@@ -117,7 +117,7 @@ function finish() {
 
         <!-- Skip -->
         <button
-          class="absolute top-4 right-4 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-2 py-1 rounded"
+          class="absolute top-4 right-4 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors px-2 py-1 rounded"
           @click="emit('done')"
         >跳过</button>
       </div>

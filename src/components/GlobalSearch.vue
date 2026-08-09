@@ -1,50 +1,50 @@
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
-      <div class="w-full max-w-xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="fixed inset-0 z-modal flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
+      <div class="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
 
         <!-- Search input -->
-        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <Search class="w-4 h-4 text-gray-400 shrink-0" />
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+          <Search class="w-4 h-4 text-zinc-400 shrink-0" />
           <input
             ref="inputRef"
             v-model="query"
             placeholder="全局搜索笔记和对话…"
-            class="flex-1 text-base bg-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400"
+            class="flex-1 text-base bg-transparent outline-none text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
             @keydown="onKeydown"
           />
-          <kbd class="text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-400">Esc</kbd>
+          <kbd class="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-400">Esc</kbd>
         </div>
 
         <!-- Results -->
         <div class="max-h-[60vh] overflow-y-auto">
-          <div v-if="!query.trim()" class="py-10 text-center text-sm text-gray-400">
+          <div v-if="!query.trim()" class="py-10 text-center text-sm text-zinc-400">
             输入关键词开始搜索
           </div>
 
-          <div v-else-if="loading" class="py-10 text-center text-sm text-gray-400">搜索中…</div>
+          <div v-else-if="loading" class="py-10 text-center text-sm text-zinc-400">搜索中…</div>
 
-          <div v-else-if="!noteResults.length && !convResults.length" class="py-10 text-center text-sm text-gray-400">
+          <div v-else-if="!noteResults.length && !convResults.length" class="py-10 text-center text-sm text-zinc-400">
             未找到相关内容
           </div>
 
           <template v-else>
             <!-- Notes section -->
             <div v-if="noteResults.length">
-              <div class="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50">
+              <div class="px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-800/50">
                 笔记 ({{ noteResults.length }})
               </div>
               <button
                 v-for="(note, i) in noteResults"
                 :key="note.id"
-                class="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-50 dark:border-gray-800/50 last:border-0"
+                class="w-full flex items-start gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-left border-b border-zinc-50 dark:border-zinc-800/50 last:border-0"
                 :class="selectedIdx === i ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
                 @click="goToNote(note)"
               >
                 <FileText class="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" v-html="hl(note.title)" />
-                  <div class="text-xs text-gray-400 mt-0.5 line-clamp-2" v-html="hl(plainPreview(note.content))" />
+                  <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate" v-html="hl(note.title)" />
+                  <div class="text-xs text-zinc-400 mt-0.5 line-clamp-2" v-html="hl(plainPreview(note.content))" />
                 </div>
                 <div class="flex gap-1 shrink-0">
                   <span v-for="tag in note.tags.slice(0,1)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full" :style="{background: tag.color+'22', color: tag.color}">{{ tag.name }}</span>
@@ -54,31 +54,31 @@
 
             <!-- Conversations section -->
             <div v-if="convResults.length">
-              <div class="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50">
+              <div class="px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-800/50">
                 对话 ({{ convResults.length }})
               </div>
               <button
                 v-for="(conv, i) in convResults"
                 :key="conv.id"
-                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-50 dark:border-gray-800/50 last:border-0"
+                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-left border-b border-zinc-50 dark:border-zinc-800/50 last:border-0"
                 :class="selectedIdx === noteResults.length + i ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
                 @click="goToConv(conv)"
               >
                 <MessageSquare class="w-4 h-4 text-purple-400 shrink-0" />
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" v-html="hl(conv.title)" />
+                  <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate" v-html="hl(conv.title)" />
                 </div>
-                <span class="text-xs text-gray-400 shrink-0">{{ formatDate(conv.updatedAt) }}</span>
+                <span class="text-xs text-zinc-400 shrink-0">{{ formatDate(conv.updatedAt) }}</span>
               </button>
             </div>
           </template>
         </div>
 
         <!-- Footer hint -->
-        <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 text-[11px] text-gray-400">
-          <span><kbd class="border border-gray-200 dark:border-gray-700 rounded px-1">↑↓</kbd> 导航</span>
-          <span><kbd class="border border-gray-200 dark:border-gray-700 rounded px-1">Enter</kbd> 跳转</span>
-          <span><kbd class="border border-gray-200 dark:border-gray-700 rounded px-1">Esc</kbd> 关闭</span>
+        <div class="px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-3 text-[11px] text-zinc-400">
+          <span><kbd class="border border-zinc-200 dark:border-zinc-700 rounded px-1">↑↓</kbd> 导航</span>
+          <span><kbd class="border border-zinc-200 dark:border-zinc-700 rounded px-1">Enter</kbd> 跳转</span>
+          <span><kbd class="border border-zinc-200 dark:border-zinc-700 rounded px-1">Esc</kbd> 关闭</span>
         </div>
       </div>
     </div>

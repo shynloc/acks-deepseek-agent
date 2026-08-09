@@ -357,7 +357,7 @@ function removeInjectedNote(noteId: string) {
         v-for="att in attachments" :key="att.id"
         class="relative flex items-center gap-1.5 rounded-xl border transition-colors overflow-hidden"
         :class="{
-          'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 text-[11px]': !att.preview,
+          'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 px-2 py-1 text-[11px]': !att.preview,
           'border-violet-200 dark:border-violet-700': att.status === 'ready' && att.result?.visionUsed && !att.preview,
           'border-emerald-200 dark:border-emerald-700': att.status === 'ready' && !att.result?.visionUsed && !att.preview,
           'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20': att.status === 'error',
@@ -502,7 +502,7 @@ function removeInjectedNote(noteId: string) {
     <Transition name="expand-sheet">
       <div
         v-if="expandMode"
-        class="fixed inset-0 z-50 flex flex-col justify-end"
+        class="fixed inset-0 z-modal flex flex-col justify-end"
         @keydown.esc="closeExpand"
       >
         <!-- Backdrop -->

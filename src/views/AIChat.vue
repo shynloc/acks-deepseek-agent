@@ -459,7 +459,7 @@ onUnmounted(() => {
             保存
           </button>
           <button @click="dismissSkillExtract"
-            class="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            class="shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
             <X class="w-4 h-4" />
           </button>
         </div>

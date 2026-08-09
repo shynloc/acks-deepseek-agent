@@ -1,12 +1,12 @@
 <template>
-  <div class="flex h-full overflow-hidden bg-gray-50 dark:bg-gray-950">
+  <div class="flex h-full overflow-hidden bg-zinc-50 dark:bg-zinc-950">
 
     <!-- ══ Left sidebar: Categories + Tags ══ -->
-    <aside class="w-52 shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-      <div class="p-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">笔记本</span>
+    <aside class="w-52 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <div class="p-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">笔记本</span>
         <button
-          class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-blue-500 transition-colors"
+          class="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-colors"
           title="新建笔记"
           @click="openEditor(null)"
         ><Plus class="w-3.5 h-3.5" /></button>
@@ -16,19 +16,19 @@
         <!-- All notes -->
         <button
           class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors"
-          :class="activeCategory === null && !activeTag ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
+          :class="activeCategory === null && !activeTag ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
           @click="setCategory(null)"
         >
           <BookOpen class="w-3.5 h-3.5 shrink-0" />
           <span class="truncate">全部笔记</span>
-          <span class="ml-auto text-xs text-gray-400">{{ notes.length }}</span>
+          <span class="ml-auto text-xs text-zinc-400">{{ notes.length }}</span>
         </button>
 
         <!-- Categories section -->
         <div class="pt-2">
           <div class="flex items-center justify-between px-2 mb-1">
-            <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">分类</span>
-            <button class="text-gray-400 hover:text-blue-500 transition-colors" @click="startNewCategory">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">分类</span>
+            <button class="text-zinc-400 hover:text-blue-500 transition-colors" @click="startNewCategory">
               <Plus class="w-3 h-3" />
             </button>
           </div>
@@ -39,7 +39,7 @@
               ref="newCatInputRef"
               v-model="newCategoryName"
               placeholder="分类名称"
-              class="flex-1 text-xs border border-gray-200 dark:border-gray-700 rounded px-2 py-1 bg-transparent outline-none dark:text-gray-300"
+              class="flex-1 text-xs border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1 bg-transparent outline-none dark:text-zinc-300"
               @keydown.enter="createCategory"
               @keydown.escape="showNewCategory = false"
             />
@@ -52,7 +52,7 @@
             draggable="true"
             class="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors select-none"
             :class="[
-              activeCategory === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800',
+              activeCategory === cat.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800',
               dragOverIdx === idx ? 'border-t-2 border-blue-400' : ''
             ]"
             @click="renamingCatId !== cat.id && setCategory(cat.id)"
@@ -78,7 +78,7 @@
             />
             <span v-else class="truncate flex-1">{{ cat.name }}</span>
             <button
-              class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+              class="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500 transition-all"
               @click.stop="deleteCategory(cat.id)"
             ><X class="w-3 h-3" /></button>
           </div>
@@ -87,13 +87,13 @@
         <!-- Tags section -->
         <div class="pt-2">
           <div class="px-2 mb-1">
-            <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">标签</span>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">标签</span>
           </div>
           <button
             v-for="tag in tags"
             :key="tag.id"
             class="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-xs transition-colors"
-            :class="activeTag === tag.id ? 'bg-gray-100 dark:bg-gray-800 font-medium' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
+            :class="activeTag === tag.id ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
             @click="setTag(tag.id)"
           >
             <span class="w-2 h-2 rounded-full shrink-0" :class="tagDotClass(tag.color)" />
@@ -103,12 +103,12 @@
       </div>
 
       <!-- Shortcuts section -->
-      <div v-if="shortcuts.length" class="border-t border-gray-100 dark:border-gray-800 p-2">
-        <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 mb-1.5">快捷方式</div>
+      <div v-if="shortcuts.length" class="border-t border-zinc-100 dark:border-zinc-800 p-2">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-2 mb-1.5">快捷方式</div>
         <button
           v-for="s in shortcuts"
           :key="s.noteId"
-          class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
           @click="openNoteById(s.noteId)"
         >
           <Bookmark class="w-3 h-3 shrink-0 text-amber-400" />
@@ -122,30 +122,30 @@
       <!-- Note list pane (narrows when inline editor is open) -->
       <div
         class="flex flex-col overflow-hidden transition-all duration-200"
-        :class="editorOpen && isWideScreen ? 'w-80 shrink-0 border-r border-gray-200 dark:border-gray-700' : 'flex-1'"
+        :class="editorOpen && isWideScreen ? 'w-80 shrink-0 border-r border-zinc-200 dark:border-zinc-700' : 'flex-1'"
       >
       <!-- Toolbar row -->
-      <div class="flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div class="flex items-center gap-3 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
         <!-- Search -->
         <div
           class="flex items-center gap-2 flex-1 max-w-sm rounded-xl px-3 py-1.5 transition-colors"
           :class="semanticMode
             ? 'bg-purple-50 dark:bg-purple-900/20 ring-1 ring-purple-300 dark:ring-purple-700'
-            : 'bg-gray-100 dark:bg-gray-800'"
+            : 'bg-zinc-100 dark:bg-zinc-800'"
         >
           <Loader2 v-if="semanticSearching" class="w-3.5 h-3.5 text-purple-500 shrink-0 animate-spin" />
-          <Search v-else class="w-3.5 h-3.5 shrink-0" :class="semanticMode ? 'text-purple-500' : 'text-gray-400'" />
+          <Search v-else class="w-3.5 h-3.5 shrink-0" :class="semanticMode ? 'text-purple-500' : 'text-zinc-400'" />
           <input
             v-model="searchQuery"
             :placeholder="semanticMode ? 'AI 语义搜索… 按 Enter 开始' : '搜索笔记…'"
-            class="flex-1 text-sm bg-transparent outline-none placeholder-gray-400"
-            :class="semanticMode ? 'text-purple-700 dark:text-purple-200' : 'text-gray-700 dark:text-gray-300'"
+            class="flex-1 text-sm bg-transparent outline-none placeholder-zinc-400"
+            :class="semanticMode ? 'text-purple-700 dark:text-purple-200' : 'text-zinc-700 dark:text-zinc-300'"
             @input="onSearch"
             @keydown.enter="semanticMode && semanticSearch()"
           />
           <button
             v-if="searchQuery"
-            class="text-gray-400 hover:text-gray-600"
+            class="text-zinc-400 hover:text-zinc-600"
             @click="searchQuery = ''; semanticResults = []; onSearch()"
           >
             <X class="w-3 h-3" />
@@ -154,7 +154,7 @@
             class="p-0.5 rounded transition-colors"
             :class="semanticMode
               ? 'text-purple-500 hover:text-purple-700'
-              : 'text-gray-400 hover:text-purple-500'"
+              : 'text-zinc-400 hover:text-purple-500'"
             title="AI 语义搜索"
             @click="toggleSemanticMode"
           >
@@ -167,23 +167,23 @@
           <template v-if="!(editorOpen && isWideScreen)">
             <select
               v-model="sortBy"
-              class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 outline-none"
+              class="text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 outline-none"
             >
               <option value="updated">最近修改</option>
               <option value="created">创建时间</option>
               <option value="title">标题</option>
             </select>
 
-            <div class="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
               <button
                 class="p-1.5 transition-colors"
-                :class="viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
+                :class="viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:text-zinc-400'"
                 @click="viewMode = 'grid'"
                 title="网格视图"
               ><LayoutGrid class="w-3.5 h-3.5" /></button>
               <button
                 class="p-1.5 transition-colors"
-                :class="viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-400'"
+                :class="viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:text-zinc-400'"
                 @click="viewMode = 'list'"
                 title="列表视图"
               ><List class="w-3.5 h-3.5" /></button>
@@ -198,7 +198,7 @@
           </button>
           <button
             v-if="!(editorOpen && isWideScreen)"
-            class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-xl transition-colors"
+            class="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium rounded-xl transition-colors"
             title="从模板新建"
             @click="showTemplatePicker = true"
           >
@@ -217,13 +217,13 @@
         <!-- ── Semantic results ── -->
         <template v-else-if="semanticMode">
           <!-- Not searched yet -->
-          <div v-if="!semanticResults.length && !semanticSearching && !semanticSearchDone" class="flex flex-col items-center justify-center h-64 text-gray-400">
+          <div v-if="!semanticResults.length && !semanticSearching && !semanticSearchDone" class="flex flex-col items-center justify-center h-64 text-zinc-400">
             <Sparkles class="w-10 h-10 mb-3 opacity-30" />
             <p class="text-sm">输入问题或关键词，按 Enter 开始 AI 语义搜索</p>
             <p class="text-xs mt-1 opacity-60">跨越关键词障碍，理解文意找到笔记</p>
           </div>
           <!-- Searched but no results -->
-          <div v-else-if="!semanticResults.length && !semanticSearching && semanticSearchDone" class="flex flex-col items-center justify-center py-12 text-gray-400 gap-3 px-4">
+          <div v-else-if="!semanticResults.length && !semanticSearching && semanticSearchDone" class="flex flex-col items-center justify-center py-12 text-zinc-400 gap-3 px-4">
             <Sparkles class="w-10 h-10 opacity-30" />
             <p class="text-sm">没有找到相关笔记</p>
             <p v-if="!semanticModelHint" class="text-xs opacity-60">可能是笔记尚未建立向量索引，点击「建立索引」后再试</p>
@@ -257,28 +257,28 @@
           <template v-else-if="semanticResults.length">
             <div class="flex items-center gap-2 mb-3">
               <Sparkles class="w-3.5 h-3.5 text-purple-500" />
-              <span class="text-xs text-gray-400">找到 {{ semanticResults.length }} 篇相关笔记</span>
+              <span class="text-xs text-zinc-400">找到 {{ semanticResults.length }} 篇相关笔记</span>
             </div>
             <div class="space-y-1.5">
               <div
                 v-for="note in semanticResults"
                 :key="note.id"
-                class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all"
+                class="group flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 hover:border-purple-300 dark:hover:border-purple-600 cursor-pointer transition-all"
                 @dblclick="openEditor(note)"
                 @click="selectedNote = note"
               >
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-0.5">
-                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ note.title || '无标题' }}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 shrink-0 font-medium">
                       {{ Math.round(note.score * 100) }}%
                     </span>
                   </div>
-                  <p class="text-xs text-gray-400 truncate">{{ plainPreview(note.content) }}</p>
+                  <p class="text-xs text-zinc-400 truncate">{{ plainPreview(note.content) }}</p>
                 </div>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-500" @click.stop="openEditor(note)"><Pencil class="w-3 h-3" /></button>
-                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500" @click.stop="confirmDelete(note)"><Trash2 class="w-3 h-3" /></button>
+                  <button class="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-blue-500" @click.stop="openEditor(note)"><Pencil class="w-3 h-3" /></button>
+                  <button class="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-red-500" @click.stop="confirmDelete(note)"><Trash2 class="w-3 h-3" /></button>
                 </div>
               </div>
             </div>
@@ -288,11 +288,11 @@
         <template v-else>
           <!-- Stats bar (independent, always shows when notes exist) -->
           <div v-if="filteredNotes.length" class="flex items-center justify-between mb-3">
-            <span class="text-xs text-gray-400">共 {{ filteredNotes.length }} 篇笔记</span>
+            <span class="text-xs text-zinc-400">共 {{ filteredNotes.length }} 篇笔记</span>
           </div>
 
           <!-- Empty state -->
-          <div v-if="!filteredNotes.length" class="flex flex-col items-center justify-center h-64 text-gray-400">
+          <div v-if="!filteredNotes.length" class="flex flex-col items-center justify-center h-64 text-zinc-400">
             <BookOpen class="w-12 h-12 mb-3 opacity-30" />
             <p class="text-sm">暂无笔记</p>
             <button class="mt-3 text-sm text-blue-500 hover:text-blue-600" @click="openEditor(null)">新建第一篇笔记</button>
@@ -321,11 +321,11 @@
           <!-- List -->
           <!-- 紧凑列表：取消行间距改用 1px 分隔线，行高 ≤51px。
                原为 p-3 + space-y-1.5（节距 70px），1280×800 一屏仅 9 条 -->
-          <div v-else class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+          <div v-else class="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-800">
             <div
               v-for="note in visibleNotes"
               :key="note.id"
-              class="group flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-gray-800 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40 relative"
+              class="group flex items-center gap-3 px-3 py-1.5 bg-white dark:bg-zinc-800 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-700/40 relative"
               :class="{ 'bg-blue-50/60 dark:bg-blue-950/30': editorOpen && isWideScreen && editingNote?.id === note.id }"
               @click="editorOpen && isWideScreen ? openEditor(note) : (selectedNote = note)"
               @dblclick="editorOpen && isWideScreen ? undefined : openEditor(note)"
@@ -338,19 +338,19 @@
               <div v-if="note.color && note.color !== 'none'" class="w-1.5 h-7 rounded-full shrink-0" :style="{ background: noteColorHex(note.color) }" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
+                  <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ note.title || '无标题' }}</span>
                   <span v-for="tag in note.tags.slice(0, 2)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" :class="tagChipClass(tag.color)">{{ tag.name }}</span>
                 </div>
                 <!-- Show FTS5 snippet with highlights when searching, plain preview otherwise -->
-                <p v-if="note.searchSnippet" class="text-xs text-gray-400 truncate"
+                <p v-if="note.searchSnippet" class="text-xs text-zinc-400 truncate"
                    v-html="highlightSnippet(note.searchSnippet)" />
-                <p v-else class="text-xs text-gray-400 truncate">{{ plainPreview(note.content) }}</p>
+                <p v-else class="text-xs text-zinc-400 truncate">{{ plainPreview(note.content) }}</p>
               </div>
-              <div class="flex items-center gap-2 shrink-0 text-xs text-gray-400">
+              <div class="flex items-center gap-2 shrink-0 text-xs text-zinc-400">
                 <span>{{ formatDate(note.updatedAt) }}</span>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-500" @click.stop="openEditor(note)"><Pencil class="w-3 h-3" /></button>
-                  <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500" @click.stop="confirmDelete(note)"><Trash2 class="w-3 h-3" /></button>
+                  <button class="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-blue-500" @click.stop="openEditor(note)"><Pencil class="w-3 h-3" /></button>
+                  <button class="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-red-500" @click.stop="confirmDelete(note)"><Trash2 class="w-3 h-3" /></button>
                 </div>
               </div>
             </div>
@@ -384,12 +384,12 @@
 
     <!-- Delete confirm dialog -->
     <Transition name="modal">
-      <div v-if="deletingNote" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="deletingNote = null">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-80">
-        <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">删除笔记</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">「{{ deletingNote.title || '无标题' }}」将被永久删除，无法恢复。</p>
+      <div v-if="deletingNote" class="fixed inset-0 z-confirm flex items-center justify-center bg-black/40" @click.self="deletingNote = null">
+        <div class="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-2xl w-80">
+        <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 mb-2">删除笔记</h3>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">「{{ deletingNote.title || '无标题' }}」将被永久删除，无法恢复。</p>
         <div class="flex gap-2 justify-end">
-          <button class="px-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700" @click="deletingNote = null">取消</button>
+          <button class="px-4 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700" @click="deletingNote = null">取消</button>
           <button class="px-4 py-1.5 text-sm rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium" @click="doDelete">删除</button>
         </div>
       </div>
@@ -786,7 +786,7 @@ function highlightSnippet(snippet: string): string {
   const MARK_OPEN = '\x01'
   const MARK_CLOSE = '\x02'
   return snippet
-    .replace(new RegExp(MARK_OPEN, 'g'), '<mark class="bg-yellow-200 dark:bg-yellow-700/60 text-gray-900 dark:text-gray-100 rounded px-0.5">')
+    .replace(new RegExp(MARK_OPEN, 'g'), '<mark class="bg-yellow-200 dark:bg-yellow-700/60 text-zinc-900 dark:text-zinc-100 rounded px-0.5">')
     .replace(new RegExp(MARK_CLOSE, 'g'), '</mark>')
 }
 

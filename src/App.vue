@@ -155,7 +155,7 @@ onUnmounted(() => {
 
     <!-- Destructive action confirmation dialog (global — survives page navigation) -->
     <Transition name="modal">
-      <div v-if="confirmDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div v-if="confirmDialog" class="fixed inset-0 z-confirm flex items-center justify-center bg-black/40 backdrop-blur-sm">
         <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 p-6 mx-4 max-w-sm w-full">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">

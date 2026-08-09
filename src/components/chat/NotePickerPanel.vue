@@ -1,36 +1,36 @@
 <template>
   <!-- Floating panel, positioned above the input -->
-  <div class="absolute bottom-full left-0 right-0 mb-2 z-40">
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+  <div class="absolute bottom-full left-0 right-0 mb-2 z-dropdown">
+    <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden">
       <!-- Search -->
-      <div class="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-        <Search class="w-3.5 h-3.5 text-gray-400 shrink-0" />
+      <div class="flex items-center gap-2 px-3 py-2 border-b border-zinc-100 dark:border-zinc-700">
+        <Search class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
         <input
           ref="searchRef"
           v-model="query"
           placeholder="搜索笔记…"
-          class="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-300 placeholder-gray-400"
+          class="flex-1 text-sm bg-transparent outline-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
         />
-        <button class="text-gray-400 hover:text-gray-600" @click="$emit('close')">
+        <button class="text-zinc-400 hover:text-zinc-600" @click="$emit('close')">
           <X class="w-3.5 h-3.5" />
         </button>
       </div>
 
       <!-- Note list -->
       <div class="max-h-56 overflow-y-auto">
-        <div v-if="!notes.length && !loading" class="py-6 text-center text-xs text-gray-400">
+        <div v-if="!notes.length && !loading" class="py-6 text-center text-xs text-zinc-400">
           暂无笔记
         </div>
-        <div v-if="loading" class="py-6 text-center text-xs text-gray-400">加载中…</div>
+        <div v-if="loading" class="py-6 text-center text-xs text-zinc-400">加载中…</div>
         <button
           v-for="note in filteredNotes"
           :key="note.id"
-          class="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left border-b border-gray-50 dark:border-gray-700/50 last:border-0"
+          class="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-left border-b border-zinc-50 dark:border-zinc-700/50 last:border-0"
           @click="selectNote(note)"
         >
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</div>
-            <div class="text-xs text-gray-400 truncate mt-0.5">{{ plainPreview(note.content) }}</div>
+            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ note.title || '无标题' }}</div>
+            <div class="text-xs text-zinc-400 truncate mt-0.5">{{ plainPreview(note.content) }}</div>
           </div>
           <div class="flex gap-1 shrink-0 mt-0.5">
             <span
@@ -43,7 +43,7 @@
         </button>
       </div>
 
-      <div class="px-3 py-1.5 bg-gray-50 dark:bg-gray-900/50 text-[11px] text-gray-400">
+      <div class="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 text-[11px] text-zinc-400">
         点击笔记将其内容作为上下文插入输入框
       </div>
     </div>

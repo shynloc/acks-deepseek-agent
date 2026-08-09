@@ -76,7 +76,7 @@ const summary = computed(() => {
 <template>
   <div v-if="records.length" class="my-2 space-y-1.5">
     <!-- Summary row -->
-    <div class="text-xs text-gray-400 dark:text-gray-500 px-1">{{ summary }}</div>
+    <div class="text-xs text-zinc-400 dark:text-zinc-500 px-1">{{ summary }}</div>
 
     <!-- Individual tool call rows -->
     <div
@@ -105,15 +105,15 @@ const summary = computed(() => {
 
         <!-- Emoji + label -->
         <span class="flex-none">{{ rec.emoji }}</span>
-        <span class="font-medium text-gray-700 dark:text-gray-300">{{ label(rec.name) }}</span>
+        <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ label(rec.name) }}</span>
 
         <!-- Args preview -->
-        <span class="flex-1 truncate text-gray-400 dark:text-gray-500 font-mono">
+        <span class="flex-1 truncate text-zinc-400 dark:text-zinc-500 font-mono">
           {{ fmtArgs(rec.args) }}
         </span>
 
         <!-- Expand toggle (only when done/error) -->
-        <span v-if="rec.status !== 'calling'" class="flex-none text-gray-400">
+        <span v-if="rec.status !== 'calling'" class="flex-none text-zinc-400">
           <ChevronDown v-if="expanded.has(rec.callId)" class="w-3 h-3" />
           <ChevronRight v-else class="w-3 h-3" />
         </span>
@@ -125,7 +125,7 @@ const summary = computed(() => {
           v-if="expanded.has(rec.callId) && rec.result"
           class="border-t border-inherit px-3 py-2"
         >
-          <pre class="whitespace-pre-wrap break-words text-gray-600 dark:text-gray-400 font-mono leading-relaxed">{{ fmtResult(rec.result) }}</pre>
+          <pre class="whitespace-pre-wrap break-words text-zinc-600 dark:text-zinc-400 font-mono leading-relaxed">{{ fmtResult(rec.result) }}</pre>
         </div>
       </Transition>
     </div>

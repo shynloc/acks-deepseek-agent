@@ -3,7 +3,7 @@
     <!-- 位置跟随顶栏高度 token，不再硬编码 72px（原值 = 顶栏 56 + 16，
          顶栏一改就会重叠或脱节，且两处没有任何关联标记） -->
     <div
-      class="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col items-center gap-2 pointer-events-none"
+      class="fixed left-1/2 -translate-x-1/2 z-toast flex flex-col items-center gap-2 pointer-events-none"
       :style="{ top: 'calc(var(--banner-h) + 16px)' }"
     >
       <TransitionGroup name="toast">
@@ -12,8 +12,8 @@
           :key="t.id"
           class="flex items-start gap-2.5 px-4 py-2.5 rounded-xl border shadow-lg text-sm font-medium
                  pointer-events-auto cursor-pointer max-w-md
-                 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700
-                 text-gray-800 dark:text-zinc-100"
+                 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700
+                 text-zinc-800 dark:text-zinc-100"
           @click="toast.dismiss(t.id)"
           :title="t.message"
         >
