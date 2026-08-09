@@ -292,6 +292,30 @@
           </div>
         </div>
       </div>
+
+      <!-- 放弃未保存的新笔记前确认 —— 新笔记没有 id，不受自动保存保护 -->
+      <div
+        v-if="showDiscardConfirm"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        @click.self="showDiscardConfirm = false"
+      >
+        <div class="w-80 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-2xl">
+          <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">放弃这篇笔记？</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            这是一篇尚未保存的新笔记，关闭后已输入的内容将无法找回。
+          </p>
+          <div class="flex gap-2 justify-end">
+            <button
+              class="px-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              @click="showDiscardConfirm = false"
+            >继续编辑</button>
+            <button
+              class="px-4 py-1.5 text-sm rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium"
+              @click="discardAndClose"
+            >放弃</button>
+          </div>
+        </div>
+      </div>
     </div>
   </Teleport>
 </template>
@@ -402,7 +426,21 @@ function populateForm(n?: Note | null) {
   } else {
     form.value = { title: '', content: '', categoryId: '', color: 'none', wordCount: 0, updatedAt: 0, selectedTagIds: [], visibility: 'private' }
   }
+  baseline.value = snapshot()
 }
+
+// ── Unsaved-changes guard ────────────────────────────────────────────────────
+// Notes that already exist are auto-saved every 2 s, but a brand-new note has no
+// id yet and therefore never auto-saves (see the guard in the autoSave watcher).
+// Without this check, closing the editor silently discards everything typed.
+function snapshot(): string {
+  const f = form.value
+  return JSON.stringify([f.title, f.content, f.categoryId, f.color, f.visibility, [...f.selectedTagIds].sort()])
+}
+
+const baseline = ref('')
+const isDirty = computed(() => snapshot() !== baseline.value)
+const showDiscardConfirm = ref(false)
 
 onMounted(() => {
   populateForm(props.note)
@@ -787,6 +825,17 @@ async function handleSave() {
 }
 
 function handleClose() {
+  // 已存在的笔记有 2s 自动保存兜底；新笔记没有 id、不触发自动保存，
+  // 直接关闭会静默丢弃已输入的全部内容，故此处必须拦一道。
+  if (isDirty.value && !props.note?.id) {
+    showDiscardConfirm.value = true
+    return
+  }
+  emit('close')
+}
+
+function discardAndClose() {
+  showDiscardConfirm.value = false
   emit('close')
 }
 

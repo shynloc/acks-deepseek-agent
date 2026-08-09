@@ -354,10 +354,15 @@
       </div>
       </div><!-- end note list pane -->
 
-      <!-- ══ Inline editor pane (wide screens) ══ -->
-      <div v-if="editorOpen && isWideScreen" class="flex-1 overflow-hidden">
+      <!-- ══ Note editor ══
+           单实例：NoteEditor 内部已用 Teleport 处理「内嵌窗格 / 弹窗」两种形态
+           （见 NoteEditor.vue:2），此处只需切 inline 属性。
+           曾经这里是两个互斥的 v-if 实例，跨 1024px 断点时组件被销毁重建，
+           正在编辑但尚未保存的内容会全部丢失。 -->
+      <div :class="editorOpen && isWideScreen ? 'flex-1 overflow-hidden' : 'hidden'">
         <NoteEditor
-          inline
+          v-if="editorOpen"
+          :inline="isWideScreen"
           :note="editingNote"
           :categories="categories"
           :available-tags="tags"
@@ -369,21 +374,6 @@
         />
       </div>
     </main>
-
-    <!-- ══ Note Editor Modal (narrow screens only) ══ -->
-    <Transition name="modal">
-      <NoteEditor
-        v-if="editorOpen && !isWideScreen"
-        :note="editingNote"
-        :categories="categories"
-        :available-tags="tags"
-        @save="onEditorSave"
-        @auto-save="onEditorAutoSave"
-        @close="editorOpen = false"
-        @create-tag="onCreateTag"
-        @open-note="openNoteById"
-      />
-    </Transition>
 
     <!-- Delete confirm dialog -->
     <Transition name="modal">
