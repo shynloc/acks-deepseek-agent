@@ -139,9 +139,8 @@
             :key="tag.id"
             class="text-xs px-2 py-0.5 rounded-full border transition-all"
             :class="isTagSelected(tag.id)
-              ? 'border-transparent text-white'
+              ? `border-transparent ${tagSelectedClass(tag.color)}`
               : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'"
-            :style="isTagSelected(tag.id) ? { background: tag.color } : {}"
             @click="toggleTag(tag)"
           >{{ tag.name }}</button>
           <button
@@ -332,6 +331,7 @@ import { uploadFile, imageUrl as picbedImageUrl } from '@/services/picbed'
 import { useSettingsStore } from '@/stores/settings'
 import type { Note, Category, Tag as TagType } from '@/stores/notes'
 import { useNotesStore } from '@/stores/notes'
+import { tagSelectedClass, pickTagColor } from '@/utils/tagColor'
 
 // ── Marked config ─────────────────────────────────────────────────────────────
 marked.setOptions({
@@ -467,8 +467,8 @@ function toggleTag(tag: TagType) {
 function createNewTag() {
   const name = newTagName.value.trim()
   if (!name) return
-  const colors = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc', '#e879f9', '#34d399']
-  const color = colors[Math.floor(Math.random() * colors.length)]
+  // 优先挑还没被用过的色相，避免新标签与已有标签同色难以区分
+  const color = pickTagColor(props.availableTags.map(t => t.color))
   emit('createTag', name, color)
   newTagName.value = ''
   showNewTag.value = false

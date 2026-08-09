@@ -96,7 +96,7 @@
             :class="activeTag === tag.id ? 'bg-gray-100 dark:bg-gray-800 font-medium' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
             @click="setTag(tag.id)"
           >
-            <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: tag.color }" />
+            <span class="w-2 h-2 rounded-full shrink-0" :class="tagDotClass(tag.color)" />
             <span class="truncate">{{ tag.name }}</span>
           </button>
         </div>
@@ -332,7 +332,7 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-0.5">
                   <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ note.title || '无标题' }}</span>
-                  <span v-for="tag in note.tags.slice(0, 2)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" :style="{ background: tag.color + '22', color: tag.color }">{{ tag.name }}</span>
+                  <span v-for="tag in note.tags.slice(0, 2)" :key="tag.id" class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" :class="tagChipClass(tag.color)">{{ tag.name }}</span>
                 </div>
                 <!-- Show FTS5 snippet with highlights when searching, plain preview otherwise -->
                 <p v-if="note.searchSnippet" class="text-xs text-gray-400 truncate"
@@ -411,6 +411,7 @@ import NoteCard from '@/components/notes/NoteCard.vue'
 import NoteEditor from '@/components/notes/NoteEditor.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import TemplatePickerModal from '@/components/notes/TemplatePickerModal.vue'
+import { tagChipClass, tagDotClass } from '@/utils/tagColor'
 
 const store = useNotesStore()
 const chatStore = useChatStore()

@@ -20,7 +20,7 @@
             v-for="tag in note.tags.slice(0, 2)"
             :key="tag.id"
             class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-            :style="{ background: tag.color + '22', color: tag.color }"
+            :class="tagChipClass(tag.color)"
           >{{ tag.name }}</span>
           <span v-if="note.tags.length > 2" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
             +{{ note.tags.length - 2 }}
@@ -82,6 +82,7 @@
 import { computed } from 'vue'
 import { Bookmark, Pencil, Trash2, MessageSquare } from '@lucide/vue'
 import { highlightText } from '@/utils/highlight'
+import { tagChipClass } from '@/utils/tagColor'
 import type { Note, Category } from '@/stores/notes'
 
 const props = defineProps<{
