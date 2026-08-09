@@ -274,6 +274,8 @@ const costEstimate = computed(() => {
   return cost < 0.01 ? '< $0.01' : `~$${cost.toFixed(2)}`
 })
 
+const appVersion = __APP_VERSION__
+
 // `window` is not in Vue's template global whitelist — templates must go through this.
 function openExternal(url: string): void { window.api.shell.openExternal(url) }
 
@@ -1860,7 +1862,7 @@ async function importMarkdown() {
         </div>
       </section>
 
-      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v1.0.18</div>
+      <div class="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">DeepSeek Notes v{{ appVersion }}</div>
     </div>
   </div>
 
