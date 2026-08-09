@@ -3,7 +3,6 @@
 // Faithful port of all 13 ACKS Reader themes to DeepSeek Notes CSS.
 // Run: node scripts/gen-themes.js > src/assets/markdown-themes/index.css
 
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Ma+Shan+Zheng&family=Archivo:wght@500;700;900&family=Anton&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap');`
 
 // struct() maps ACKS struct(c) to standard HTML selectors scoped under prefix p
 function struct(p, c) {
@@ -428,11 +427,18 @@ function buildTheme(t) {
 }
 
 // ── Shared preamble ───────────────────────────────────────────────
+//
+// 这里曾有一条 @import 从 Google Fonts 加载 13 个字族，现已删除。它从未生效过：
+// src/index.html 的 CSP 为 `default-src 'self'; style-src 'self' 'unsafe-inline'`,
+// 既未放行该域名，也未声明 font-src（回落到 default-src），跨域样式表与字体文件
+// 双双被拦。实测 document.fonts 注册数为 0；主题中引用 51 次的 JetBrains Mono
+// 以及 Inter / Lora 等，渲染宽度与通用兜底字体完全一致。对中文用户该域名通常也
+// 不可达。若要恢复某套主题的字体设计意图，须本地打包 woff2 并在 CSP 增加
+// font-src 'self'，各主题的退化程度见 docs/DESIGN_SPEC.md 附录。
 const SHARED = `
 /* ══════════════════════════════════════════════════════════════════
-   Google Fonts — graceful offline fallback
+   字体：一律使用本机字体，不联网加载（原因见 scripts/gen-themes.js）
 ══════════════════════════════════════════════════════════════════ */
-${FONTS}
 
 /* ══════════════════════════════════════════════════════════════════
    Shared structural resets (scoped to .md-preview)
