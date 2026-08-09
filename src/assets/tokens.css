@@ -1,0 +1,148 @@
+/*
+ * DeepSeek Notes 设计 token —— 见 docs/DESIGN_SPEC.md
+ *
+ * 两层架构：
+ *   1. Primitive  纯色值，与主题无关，全局唯一真源
+ *   2. Semantic   :root(浅) 与 .dark(深) 只重新映射角色 → primitive
+ *
+ * 硬约束：.dark 中不得重新定义任何 primitive，只允许改变语义层的指向。
+ *
+ * 色值以「空格分隔的 RGB 通道」存储，使 Tailwind 透明度修饰符可用：
+ *   bg-surface/50 → rgb(var(--c-surface) / 0.5)
+ *
+ * 对比度均已实测（WCAG 2.1 相对亮度），数值见 DESIGN_SPEC.md §3.3。
+ */
+
+:root {
+  /* ── Primitive: 中性 zinc ─────────────────────────────────────────── */
+  --p-zinc-50:  250 250 250;
+  --p-zinc-100: 244 244 245;
+  --p-zinc-200: 228 228 231;
+  --p-zinc-300: 212 212 216;
+  --p-zinc-400: 161 161 170;
+  --p-zinc-500: 113 113 122;
+  --p-zinc-600: 82 82 91;
+  --p-zinc-700: 63 63 70;
+  --p-zinc-800: 39 39 42;
+  --p-zinc-900: 24 24 27;
+  --p-zinc-950: 9 9 11;
+  --p-white:    255 255 255;
+
+  /* 补齐 zinc 阶未覆盖、但语义层必需的值。
+     语义层不得直接书写字面色值——任何新色必须先在此处升为 primitive。 */
+  --p-neutral-control: 142 142 151; /* #8e8e97  浅色控件边框 3.25:1 */
+  --p-neutral-dim:     139 139 147; /* #8b8b93  深色三级文本 5.24:1 on surface */
+  --p-zinc-925: 16 16 19;           /* #101013  深色侧栏，介于 950 与 900 之间 */
+  --p-zinc-875: 28 28 31;           /* #1c1c1f  深色 hover 底，介于 900 与 800 之间 */
+
+  /* ── Primitive: 品牌蓝 ────────────────────────────────────────────── */
+  --p-blue-400: 96 165 250;
+  --p-blue-500: 59 130 246;
+  --p-blue-600: 37 99 235;
+  --p-blue-700: 29 78 216;
+
+  /* ── Primitive: 功能色 ────────────────────────────────────────────── */
+  --p-emerald-400: 52 211 153;
+  --p-emerald-700: 4 120 87;
+  --p-amber-400:   251 191 36;
+  --p-amber-700:   180 83 9;
+  --p-red-400:     248 113 113;
+  --p-red-600:     220 38 38;
+
+  /* ── Semantic: 浅色 ───────────────────────────────────────────────── */
+  --c-canvas:         var(--p-white);
+  --c-subtle:         var(--p-zinc-50);
+  --c-muted:          var(--p-zinc-100);
+  --c-surface:        var(--p-white);
+  --c-raised:         var(--p-white);
+
+  --c-border:         var(--p-zinc-200);
+  --c-border-control: var(--p-neutral-control);
+
+  --c-text:           var(--p-zinc-900);
+  --c-text-secondary: var(--p-zinc-600);
+  --c-text-tertiary:  var(--p-zinc-500);
+  --c-text-disabled:  var(--p-zinc-400);
+
+  --c-accent:         var(--p-blue-600);
+  --c-accent-fg:      var(--p-white);
+  --c-success:        var(--p-emerald-700);
+  --c-warning:        var(--p-amber-700);
+  --c-danger:         var(--p-red-600);
+
+  /* 交互反馈用「前景色半透明叠加」而非固定灰阶：它会自动适配所处表面与明暗模式。
+     固定色做不到——深色下 muted(#1c1c1f) 叠在 surface(#18181b) 上只有 1.042，几乎不可见。
+     叠加方案在明暗两态、所有表面上稳定给出 1.13–1.20。 */
+  --c-hover:  rgb(var(--c-text) / 0.06);
+  --c-active: rgb(var(--c-text) / 0.10);
+
+  /* ── 非颜色 token ─────────────────────────────────────────────────── */
+  --shadow-raised:  0 2px 8px -2px rgb(0 0 0 / 0.08);
+  --shadow-overlay: 0 12px 32px -8px rgb(0 0 0 / 0.16);
+  --scrim:          rgb(0 0 0 / 0.5);
+
+  /* 顶栏高度：Toast 等浮层定位须引用此变量，不得硬编码 */
+  --banner-h: 56px;
+
+  --dur-instant: 120ms;
+  --dur-fast:    180ms;
+  --dur-base:    240ms;
+  --dur-exit:    160ms;
+  /* 命名刻意避开 ease-out / ease-in —— 那是 CSS 内置关键字，也是 Tailwind 内置类名，
+     同名不同义会导致「用错不报错，只是慢半拍」。 */
+  --ease-standard:   cubic-bezier(0.2, 0, 0, 1);  /* 进入、移动 */
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);  /* 退出 */
+}
+
+.dark {
+  /* 只重新映射语义层；primitive 一个都不改 */
+  --c-canvas:         var(--p-zinc-950);
+  --c-subtle:         var(--p-zinc-925);  /* 侧栏，比 canvas 亮一点点 */
+  --c-muted:          var(--p-zinc-875);  /* hover 底 */
+  --c-surface:        var(--p-zinc-900);
+  --c-raised:         var(--p-zinc-800);  /* 浮层比卡片再亮一档 —— 深色下层级靠提亮而非阴影 */
+
+  /* zinc-800 会与 --c-raised 同色（对比度 1.000），浮层边框将完全不可见。
+     zinc-700 是唯一在 canvas/surface/raised 三种底上都可见的取值（最低 1.43）。 */
+  --c-border:         var(--p-zinc-700);
+  --c-border-control: var(--p-zinc-600);
+
+  --c-text:           var(--p-zinc-50);
+  --c-text-secondary: var(--p-zinc-400);
+  --c-text-tertiary:  var(--p-neutral-dim);
+  --c-text-disabled:  var(--p-zinc-500);
+
+  --c-accent:         var(--p-blue-400);   /* 深色下提亮一档，否则掉到 4.5:1 以下 */
+  --c-accent-fg:      var(--p-zinc-950);
+  --c-success:        var(--p-emerald-400);
+  --c-warning:        var(--p-amber-400);
+  --c-danger:         var(--p-red-400);
+
+  --shadow-raised:  0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-overlay: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  --scrim:          rgb(0 0 0 / 0.6);
+}
+
+/* 原生控件（select 弹层、textarea 插入符与选区、input 自动填充底）跟随主题绘制。
+   缺少这一句时，深色模式下这些控件仍按浅色渲染。 */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+/* 无障碍：尊重系统的减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* 加载指示器是功能反馈而非装饰：停转会让用户误判为卡死。
+     放慢而不是停止，标记方式 data-motion="loading"。 */
+  [data-motion='loading'],
+  [data-motion='loading']::before,
+  [data-motion='loading']::after {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
