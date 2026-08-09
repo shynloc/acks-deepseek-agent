@@ -386,8 +386,16 @@ function removeInjectedNote(noteId: string) {
           <span v-if="att.status === 'parsing'" class="opacity-50">解析中…</span>
           <span v-else-if="att.status === 'ocr'" class="text-blue-500 dark:text-blue-400">OCR 识别中…</span>
           <span v-else-if="att.status === 'ready'" class="opacity-50">{{ att.type }}</span>
-          <span v-if="att.result?.warning" class="cursor-help" :title="att.result.warning"><AlertCircle class="w-2.5 h-2.5 text-amber-500" /></span>
-          <span v-if="att.status === 'error'" class="cursor-help" :title="att.error"><AlertCircle class="w-2.5 h-2.5" /></span>
+          <!-- 失败原因必须在界面上可读：原先只写进 title 属性，用户看到的仅是一个红框，
+               而 att.error 往往是原始英文异常，悬停才可见等于没有告知 -->
+          <span v-if="att.result?.warning" class="flex items-center gap-1 text-amber-600 dark:text-amber-400 max-w-[180px]">
+            <AlertCircle class="w-2.5 h-2.5 shrink-0" />
+            <span class="truncate" :title="att.result.warning">{{ att.result.warning }}</span>
+          </span>
+          <span v-if="att.status === 'error'" class="flex items-center gap-1 text-red-600 dark:text-red-400 max-w-[180px]">
+            <AlertCircle class="w-2.5 h-2.5 shrink-0" />
+            <span class="truncate" :title="att.error">{{ att.error || '解析失败' }}</span>
+          </span>
           <button v-if="att.status !== 'parsing' && att.status !== 'ocr'" class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500" @click="removeAttachment(att.id)"><X class="w-2.5 h-2.5" /></button>
         </template>
       </div>
