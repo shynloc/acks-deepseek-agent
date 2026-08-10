@@ -78,7 +78,7 @@ const groupedAgents = computed(() =>
     >
       <div
         v-if="open"
-        class="absolute bottom-full left-0 mb-2 w-72 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden z-50"
+        class="absolute bottom-full left-0 mb-2 w-72 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden z-dropdown"
       >
         <!-- Header -->
         <div class="flex items-center justify-between px-3 pt-3 pb-2">

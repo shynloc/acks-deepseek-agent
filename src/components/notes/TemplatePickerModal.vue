@@ -59,14 +59,14 @@ function getWeekNumber(): number {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      class="fixed inset-0 z-modal flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       @click.self="$emit('close')"
     >
-      <div class="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">选择模板</h2>
+      <div class="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-700">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">选择模板</h2>
           <button
-            class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             @click="$emit('close')"
           ><X class="w-4 h-4" /></button>
         </div>
@@ -75,20 +75,20 @@ function getWeekNumber(): number {
           <button
             v-for="t in templates"
             :key="t.label"
-            class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700
+            class="flex flex-col items-center gap-2 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700
                    hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20
                    transition-all text-center group"
             @click="emit('pick', t.content(), t.title()); $emit('close')"
           >
             <span class="text-3xl">{{ t.emoji }}</span>
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+            <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
               {{ t.label }}
             </span>
           </button>
         </div>
 
-        <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-800 text-center">
-          <span class="text-[11px] text-gray-400">选择后自动填入标题和内容，可随时修改</span>
+        <div class="px-5 py-3 border-t border-zinc-100 dark:border-zinc-800 text-center">
+          <span class="text-[11px] text-zinc-400">选择后自动填入标题和内容，可随时修改</span>
         </div>
       </div>
     </div>

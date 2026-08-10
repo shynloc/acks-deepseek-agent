@@ -51,14 +51,16 @@ function highlight(text: string, q: string): string {
 <template>
   <div class="flex flex-col h-full">
     <!-- New conversation button + search -->
-    <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-2">
+    <!-- 头部固定开销直接吃掉列表可视高度：原为 96.67px，占可用高度的 13%，
+         相当于近两行会话。收到 ≤80px -->
+    <div class="p-2 border-b border-zinc-200 dark:border-zinc-800 space-y-1.5">
       <button
         @click="chat.createConversation()"
-        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors"
+        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-1.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors"
       >
         <Plus class="w-3.5 h-3.5" />新建对话
       </button>
-      <div class="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg px-2.5 py-1.5">
+      <div class="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg px-2.5 py-1">
         <Search class="w-3 h-3 text-zinc-400 shrink-0" />
         <input
           v-model="searchQuery"
@@ -75,9 +77,13 @@ function highlight(text: string, q: string): string {
     <div class="flex-1 overflow-y-auto p-2 space-y-0.5">
       <!-- Skeleton while loading -->
       <template v-if="isLoading">
-        <div v-for="i in 5" :key="i" class="px-2.5 py-2 rounded-lg animate-pulse">
-          <div class="h-3.5 rounded bg-zinc-200 dark:bg-zinc-700 mb-1.5" :style="`width: ${55 + i * 8}%`" />
-          <div class="h-2.5 rounded bg-zinc-100 dark:bg-zinc-800 w-12" />
+        <!-- 骨架必须与真实行等高，否则加载完成瞬间整列跳位。
+             真实行 = py-1.5(12) + 标题 19.25 + gap-0.5(2) + 时间 10px/leading-none -->
+        <div v-for="i in 8" :key="i" class="px-2.5 py-1.5 rounded-lg animate-pulse" data-motion="loading">
+          <div class="h-[19.25px] flex items-center">
+            <div class="h-3.5 rounded bg-zinc-200 dark:bg-zinc-700 w-full" :style="`max-width: ${55 + i * 5}%`" />
+          </div>
+          <div class="mt-0.5 h-2.5 rounded bg-zinc-100 dark:bg-zinc-800 w-10" />
         </div>
       </template>
 
@@ -94,7 +100,7 @@ function highlight(text: string, q: string): string {
         v-for="conv in filteredConversations"
         :key="conv.id"
         @click="chat.selectConversation(conv.id)"
-        class="group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors"
+        class="group flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors"
         :class="chat.currentConversationId === conv.id
           ? 'bg-blue-100 dark:bg-blue-950/60'
           : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'"
@@ -121,7 +127,7 @@ function highlight(text: string, q: string): string {
                 : 'text-zinc-800 dark:text-zinc-200 font-medium'"
               v-html="highlight(conv.title || '新对话', searchQuery)"
             />
-            <span class="text-[11px] text-zinc-400 dark:text-zinc-500">{{ formatTime(conv.updatedAt) }}</span>
+            <span class="text-[10px] leading-none text-zinc-400 dark:text-zinc-500">{{ formatTime(conv.updatedAt) }}</span>
           </div>
           <div class="hidden group-hover:flex items-center gap-1 flex-none">
             <button @click="startEdit(conv, $event)" class="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 dark:text-zinc-500">

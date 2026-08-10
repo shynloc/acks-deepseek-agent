@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import {
   Zap, MessageSquare, BookOpen, RefreshCw, Cloud, Image,
   Search, AlertCircle, MessageCircle, ChevronRight, ExternalLink,
-  Key, Server, Globe, Mail, GitBranch, Copy, Check
+  Key, Globe, Mail, GitBranch, Copy, Check
 } from '@lucide/vue'
 
 const activeSection = ref('quickstart')

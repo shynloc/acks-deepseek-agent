@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
-import { BookmarkPlus, Copy, Check, FileText, ImageIcon, FileSpreadsheet, FolderOpen, ExternalLink } from '@lucide/vue'
+import { BookmarkPlus, Copy, Check, FileText, FileSpreadsheet, FolderOpen } from '@lucide/vue'
 import type { Message, Artifact } from '@/stores/chat'
 import avatarDark  from '@/assets/avatar/agent-dark.png'
 import avatarLight from '@/assets/avatar/agent-light.png'
@@ -26,8 +26,8 @@ marked.setOptions({ breaks: true, gfm: true })
 // @ts-ignore
 marked.use({
   renderer: {
-    code(code: string, lang: string) {
-      const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+    code(code: string, lang?: string) {
+      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'
       const highlighted = hljs.highlight(code, { language }).value
       const langLabel = lang ? `<span class="code-lang">${lang}</span>` : ''
       return `<pre class="code-block">${langLabel}<code class="hljs language-${language}">${highlighted}</code></pre>`
@@ -37,7 +37,7 @@ marked.use({
       return `<img src="${href}" alt="${alt}" class="chat-img rounded-lg max-w-full my-2 border border-zinc-200 dark:border-zinc-700" loading="lazy" />`
     },
     // Detect YouTube links and convert to embed
-    link(href: string, _title: string | null, text: string) {
+    link(href: string, _title: string | null | undefined, text: string) {
       const vid = ytId(href)
       if (vid) {
         return `<div class="yt-embed my-2 rounded-xl overflow-hidden" style="position:relative;padding-bottom:56.25%;height:0"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`

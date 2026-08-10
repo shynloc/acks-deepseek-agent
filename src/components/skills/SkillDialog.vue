@@ -67,20 +67,20 @@ const titles = { create: '新建技能', edit: '编辑技能', extract: 'AI 提�
 
 <template>
   <!-- Overlay -->
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="emit('cancel')">
+  <div class="fixed inset-0 z-modal flex items-center justify-center p-4" @click.self="emit('cancel')">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="emit('cancel')" />
 
     <!-- Dialog -->
-    <div class="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
 
       <!-- Header -->
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
         <div class="flex items-center gap-2">
           <Sparkles class="w-4 h-4 text-purple-500" />
-          <h2 class="font-semibold text-gray-900 dark:text-gray-100">{{ titles[mode] }}</h2>
+          <h2 class="font-semibold text-zinc-900 dark:text-zinc-100">{{ titles[mode] }}</h2>
           <span v-if="mode === 'extract'" class="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-full">AI 自动提炼</span>
         </div>
-        <button @click="emit('cancel')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors">
+        <button @click="emit('cancel')" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-lg transition-colors">
           <X class="w-4 h-4" />
         </button>
       </div>
@@ -96,24 +96,24 @@ const titles = { create: '新建技能', edit: '编辑技能', extract: 'AI 提�
 
         <!-- Name -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">技能名称 <span class="text-red-400">*</span></label>
+          <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">技能名称 <span class="text-red-400">*</span></label>
           <input v-model="name" type="text" placeholder="例：整理笔记摘要"
-            class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
         </div>
 
         <!-- Description -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">描述</label>
+          <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">描述</label>
           <input v-model="description" type="text" placeholder="一句话说明这个技能的作用"
-            class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
         </div>
 
         <!-- Trigger Keywords -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">触发关键词
-            <span class="text-xs text-gray-400 font-normal ml-1">用户输入包含这些词时自动激活</span>
+          <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">触发关键词
+            <span class="text-xs text-zinc-400 font-normal ml-1">用户输入包含这些词时自动激活</span>
           </label>
-          <div class="min-h-[40px] flex flex-wrap gap-1.5 items-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
+          <div class="min-h-[40px] flex flex-wrap gap-1.5 items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
             <span v-for="(kw, i) in keywords" :key="i"
               class="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full">
               {{ kw }}
@@ -121,25 +121,25 @@ const titles = { create: '新建技能', edit: '编辑技能', extract: 'AI 提�
             </span>
             <input v-model="kwInput" @keydown="onKwKeydown" @blur="addKeyword"
               type="text" placeholder="输入后按 Enter 添加"
-              class="flex-1 min-w-24 bg-transparent text-sm outline-none placeholder-gray-400 dark:placeholder-gray-600" />
+              class="flex-1 min-w-24 bg-transparent text-sm outline-none placeholder-zinc-400 dark:placeholder-zinc-600" />
           </div>
         </div>
 
         <!-- System Hint -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">附加指令
-            <span class="text-xs text-gray-400 font-normal ml-1">激活时注入 system prompt</span>
+          <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">附加指令
+            <span class="text-xs text-zinc-400 font-normal ml-1">激活时注入 system prompt</span>
           </label>
           <textarea v-model="systemHint" rows="3"
             placeholder="执行此类任务时，AI 应特别注意：&#10;1. ...&#10;2. ..."
-            class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
+            class="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+      <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-zinc-100 dark:border-zinc-800">
         <button @click="emit('cancel')"
-          class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+          class="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">
           取消
         </button>
         <button @click="handleSave" :disabled="!name.trim()"

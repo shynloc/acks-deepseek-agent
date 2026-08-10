@@ -1,24 +1,24 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="$emit('cancel')">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-96 p-5">
-      <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-4">存入笔记本</h3>
+  <div class="fixed inset-0 z-modal flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="$emit('cancel')">
+    <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-96 p-5">
+      <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">存入笔记本</h3>
 
       <!-- Title -->
       <div class="mb-3">
-        <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">标题</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">标题</label>
         <input
           v-model="title"
-          class="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="笔记标题…"
         />
       </div>
 
       <!-- Category -->
       <div class="mb-3">
-        <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">分类（可选）</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">分类（可选）</label>
         <select
           v-model="categoryId"
-          class="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 outline-none"
+          class="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 outline-none"
         >
           <option value="">无分类</option>
           <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
@@ -27,15 +27,15 @@
 
       <!-- Content preview -->
       <div class="mb-4">
-        <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">内容预览</label>
-        <div class="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 max-h-28 overflow-y-auto leading-relaxed">
+        <label class="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">内容预览</label>
+        <div class="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 rounded-xl p-3 max-h-28 overflow-y-auto leading-relaxed">
           {{ previewText }}
         </div>
       </div>
 
       <div class="flex gap-2 justify-end">
         <button
-          class="px-4 py-1.5 text-sm rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          class="px-4 py-1.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
           @click="$emit('cancel')"
         >取消</button>
         <button

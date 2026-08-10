@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import {
   Send, Square, Globe, BookOpen, X, Paperclip, FileText,
-  Image as ImageIcon, AlertCircle, CheckCircle, Loader,
+  AlertCircle, CheckCircle, Loader,
   Maximize2, Minimize2, GripHorizontal
 } from '@lucide/vue'
 import { useChatStore } from '@/stores/chat'
@@ -357,7 +357,7 @@ function removeInjectedNote(noteId: string) {
         v-for="att in attachments" :key="att.id"
         class="relative flex items-center gap-1.5 rounded-xl border transition-colors overflow-hidden"
         :class="{
-          'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 text-[11px]': !att.preview,
+          'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 px-2 py-1 text-[11px]': !att.preview,
           'border-violet-200 dark:border-violet-700': att.status === 'ready' && att.result?.visionUsed && !att.preview,
           'border-emerald-200 dark:border-emerald-700': att.status === 'ready' && !att.result?.visionUsed && !att.preview,
           'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20': att.status === 'error',
@@ -386,8 +386,16 @@ function removeInjectedNote(noteId: string) {
           <span v-if="att.status === 'parsing'" class="opacity-50">解析中…</span>
           <span v-else-if="att.status === 'ocr'" class="text-blue-500 dark:text-blue-400">OCR 识别中…</span>
           <span v-else-if="att.status === 'ready'" class="opacity-50">{{ att.type }}</span>
-          <span v-if="att.result?.warning" class="cursor-help" :title="att.result.warning"><AlertCircle class="w-2.5 h-2.5 text-amber-500" /></span>
-          <span v-if="att.status === 'error'" class="cursor-help" :title="att.error"><AlertCircle class="w-2.5 h-2.5" /></span>
+          <!-- 失败原因必须在界面上可读：原先只写进 title 属性，用户看到的仅是一个红框，
+               而 att.error 往往是原始英文异常，悬停才可见等于没有告知 -->
+          <span v-if="att.result?.warning" class="flex items-center gap-1 text-amber-600 dark:text-amber-400 max-w-[180px]">
+            <AlertCircle class="w-2.5 h-2.5 shrink-0" />
+            <span class="truncate" :title="att.result.warning">{{ att.result.warning }}</span>
+          </span>
+          <span v-if="att.status === 'error'" class="flex items-center gap-1 text-red-600 dark:text-red-400 max-w-[180px]">
+            <AlertCircle class="w-2.5 h-2.5 shrink-0" />
+            <span class="truncate" :title="att.error">{{ att.error || '解析失败' }}</span>
+          </span>
           <button v-if="att.status !== 'parsing' && att.status !== 'ocr'" class="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500" @click="removeAttachment(att.id)"><X class="w-2.5 h-2.5" /></button>
         </template>
       </div>
@@ -494,7 +502,7 @@ function removeInjectedNote(noteId: string) {
     <Transition name="expand-sheet">
       <div
         v-if="expandMode"
-        class="fixed inset-0 z-50 flex flex-col justify-end"
+        class="fixed inset-0 z-modal flex flex-col justify-end"
         @keydown.esc="closeExpand"
       >
         <!-- Backdrop -->

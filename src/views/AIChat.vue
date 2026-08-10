@@ -2,7 +2,7 @@
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import {
   MessageSquare, BookOpen, ExternalLink, Trash2, X, FileText, FileSpreadsheet,
-  Presentation, FolderOpen, Bot, ChevronRight, ChevronLeft, PanelRight,
+  Presentation, FolderOpen, ChevronRight, ChevronLeft, PanelRight,
   Search, Download, ChevronUp, ChevronDown, Bookmark
 } from '@lucide/vue'
 import { getAgent } from '@/data/agents'
@@ -459,7 +459,7 @@ onUnmounted(() => {
             保存
           </button>
           <button @click="dismissSkillExtract"
-            class="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            class="shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
             <X class="w-4 h-4" />
           </button>
         </div>
@@ -586,7 +586,7 @@ onUnmounted(() => {
         <div v-if="sessionNotes.length" class="p-2 border-t border-zinc-200 dark:border-zinc-800">
           <button
             class="w-full text-xs text-center py-1.5 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors font-medium"
-            @click="openNoteInNotebook"
+            @click="openNoteInNotebook()"
           >前往笔记本查看全部</button>
         </div>
 

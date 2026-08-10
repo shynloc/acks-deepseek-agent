@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="fixed inset-0 z-modal flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-[440px] mx-4 p-6">
 
         <!-- Header -->

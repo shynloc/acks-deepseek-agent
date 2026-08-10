@@ -54,14 +54,14 @@ export interface ToolCallRecord {
   status: 'calling' | 'done' | 'error'
 }
 
-// Emoji map for tool names
-const TOOL_EMOJI: Record<string, string> = {
-  search_notes: '🔍', get_note: '📄', list_notes: '📚',
-  create_note: '✍️', update_note: '✏️',
-  web_search: '🌐', get_datetime: '🕐', get_stats: '📊',
-  save_memory: '🧠', recall_memories: '💭', delete_memory: '🗑️',
-  generate_docx: '📝', generate_document: '📄', generate_spreadsheet: '📊',
-  create_pptx: '📊'
+// Tool emoji come from the registry (each tool declares its own), fetched once at
+// store creation. Tools registered later at run time — plugins — fall back to 🔧.
+const toolEmoji = new Map<string, string>()
+
+async function loadToolEmoji(): Promise<void> {
+  try {
+    for (const t of await window.api.agent.getTools()) toolEmoji.set(t.name, t.emoji)
+  } catch { /* icons are cosmetic — fall back to 🔧 */ }
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -77,6 +77,9 @@ export const useChatStore = defineStore('chat', () => {
   const skillExtractedConvIds    = new Set<string>()
   // Artifacts generated in current session (in-memory, reset on conversation switch)
   const sessionArtifacts         = ref<Artifact[]>([])
+
+  // Fire and forget at app start — resolves long before any tool can be called
+  void loadToolEmoji()
 
   const currentConversation = computed(() =>
     conversations.value.find(c => c.id === currentConversationId.value) ?? null
@@ -259,7 +262,7 @@ export const useChatStore = defineStore('chat', () => {
       currentToolCalls.value.push({
         callId:  tc.callId,
         name:    tc.name,
-        emoji:   TOOL_EMOJI[tc.name] ?? '🔧',
+        emoji:   toolEmoji.get(tc.name) ?? '🔧',
         args:    tc.args as Record<string, unknown>,
         status:  'calling'
       })
@@ -338,6 +341,7 @@ export const useChatStore = defineStore('chat', () => {
 
       // Persist assistant message (use doneMsg so toolCallRecords are included)
       const savedMsg = messages.value.find(m => m.id === assistantMsg.id)
+      const finalContent = savedMsg?.content ?? ''
       if (savedMsg?.content) {
         await window.api.db.messages.create(convId!, savedMsg)
       }
@@ -352,7 +356,7 @@ export const useChatStore = defineStore('chat', () => {
       const conv2 = conversations.value.find(c => c.id === convId)
       const userCount = messages.value.filter(m => m.role === 'user').length
       if (conv2?.title === '新对话' && userCount === 2) {
-        autoTitle(convId!, messages.value, finalContent)
+        autoTitle(convId!, messages.value)
       }
 
       // Auto-extract skill: only once per conversation
@@ -472,7 +476,8 @@ ${seq}
 
   // ── Auto title ─────────────────────────────────────────────────────────────
 
-  async function autoTitle(convId: string, msgs: Message[], assistantReply: string): Promise<void> {
+  // Title is derived from the last 2 rounds in msgs (which already include the assistant reply)
+  async function autoTitle(convId: string, msgs: Message[]): Promise<void> {
     const settings = useSettingsStore()
     if (!settings.apiKey) return
     // Build context from last 2 rounds

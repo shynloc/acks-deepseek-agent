@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,6 +9,31 @@
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * 全局键盘焦点环。
+   *
+   * 此前全项目 :focus-visible 出现 0 次，而 10 处 `outline-none` 直接删掉了
+   * 浏览器默认焦点环（其中 GlobalSearch 的输入框写了 outline-none 却没补任何
+   * 替代样式），键盘用户无从知道焦点落在哪里。
+   *
+   * 刻意用元素选择器而不是 :where()：这样特异性为 (0,1,1)，高过 Tailwind
+   * `.outline-none` 工具类的 (0,1,0)，无需逐个文件删除那些 outline-none。
+   * 只在 :focus-visible 下生效，鼠标点击不会出现焦点环。
+   *
+   * 颜色固定为主色，不随功能变化 —— 焦点指示器是可达性基础设施，
+   * 不是装饰（现状 focus:ring 用了 8 种颜色）。
+   */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex='-1']):focus-visible {
+    outline: 2px solid rgb(var(--c-accent));
+    outline-offset: 2px;
   }
 
   html, body {
