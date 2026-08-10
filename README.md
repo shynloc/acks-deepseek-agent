@@ -6,7 +6,7 @@
 
 对话即笔记，笔记即上下文
 
-[![Version](https://img.shields.io/badge/version-1.0.33-blue?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
+[![Version](https://img.shields.io/badge/version-1.0.38-blue?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Issues](https://img.shields.io/github/issues/shynloc/acks-deepseek-agent?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/issues)
@@ -36,7 +36,7 @@ DeepSeek Notes 是一款运行在本地的 AI 知识管理工具，将 **DeepSee
 |------|------|
 | macOS Apple Silicon | `DeepSeek Notes-x.x.x-arm64.dmg` |
 | macOS Intel | `DeepSeek Notes-x.x.x.dmg` |
-| Windows | `DeepSeek Notes Setup x.x.x.exe` *(即将支持)* |
+| Windows | `DeepSeek Notes Setup x.x.x.exe` |
 
 ---
 
