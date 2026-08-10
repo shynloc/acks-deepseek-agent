@@ -123,7 +123,24 @@ function startAutoSync(): void {
   }, intervalMins * 60 * 1000)
 }
 
+// ── Single-instance lock ──────────────────────────────────────────────────────
+// Two instances writing the same WAL-mode SQLite concurrently can corrupt it
+// (observed: the main db file truncated to 0 bytes with all data stranded in the
+// WAL). Nothing else guards this — double-clicking the icon twice is enough.
+const gotInstanceLock = app.requestSingleInstanceLock()
+if (!gotInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+  })
+}
+
 app.whenReady().then(() => {
+  if (!gotInstanceLock) return
   // Register memos-asset:// protocol
   protocol.handle('memos-asset', async (request) => {
     const token = (cfgStore.get('memosToken') as string | undefined)?.trim() ?? ''

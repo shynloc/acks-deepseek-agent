@@ -323,7 +323,7 @@ toolRegistry.register({
     }
   },
   handler: async (args) => {
-    const d = args as DocInput
+    const d = args as unknown as DocInput
     if (!d.sections?.length) return '❌ 至少需要一个章节（sections 不能为空）'
 
     const html     = buildDocumentHtml(d)

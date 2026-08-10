@@ -12,7 +12,6 @@ import { toolRegistry } from '../registry'
 // ── Design system colors (used for sheet comments, not cell bg — xlsx has limited color support) ──
 const DS_PRIMARY = 'FF4D6BFE'  // DeepSeek blue in ARGB
 const DS_INK     = 'FF1A1A1A'
-const DS_BG2     = 'FFF5F5F7'
 const DS_BG3     = 'FFEEEEEF'
 
 interface SheetDef {
@@ -70,7 +69,6 @@ function buildSheet(ws: XLSX.WorkSheet, def: SheetDef): void {
 
   // Style the header row and title rows using cell metadata
   const startRow = (def.title ? (def.subtitle ? 3 : 2) : 0)
-  const headerRef = XLSX.utils.encode_row(startRow)
 
   // Apply bold + background to header cells
   for (let c = 0; c < def.headers.length; c++) {
@@ -157,7 +155,7 @@ toolRegistry.register({
     }
   },
   handler: async (args) => {
-    const { filename, sheets } = args as SpreadsheetInput
+    const { filename, sheets } = args as unknown as SpreadsheetInput
     if (!sheets?.length) return '❌ 至少需要一个 Sheet'
 
     const wb = XLSX.utils.book_new()

@@ -1,10 +1,16 @@
 // Port of Hermes agent/tool_guardrails.py — prevents infinite tool-call loops
 
-// Read-only tools: repeating without mutation signals no-progress
-const IDEMPOTENT_TOOLS = new Set([
-  'search_notes', 'get_note', 'list_notes',
-  'get_datetime', 'get_stats', 'web_search'
-])
+import { toolRegistry } from '../tools/registry'
+
+/**
+ * Read-only tools: repeating them without mutation signals no-progress.
+ * Sourced from the registry's `idempotent` flag so a tool declares this once,
+ * at its definition, instead of also having to be listed here.
+ * Unknown names (hallucinated tools, plugins) count as mutating.
+ */
+function isIdempotent(name: string): boolean {
+  return toolRegistry.get(name)?.idempotent ?? false
+}
 
 
 const CFG = {
@@ -57,7 +63,7 @@ export class ToolGuardrails {
       this.toolFailures.set(name, (this.toolFailures.get(name) ?? 0) + 1)
     }
 
-    if (IDEMPOTENT_TOOLS.has(name)) {
+    if (isIdempotent(name)) {
       this.noProgressCount++
     } else {
       // A mutating tool means progress was made — reset counter

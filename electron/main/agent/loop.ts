@@ -287,8 +287,9 @@ async function runFinalTurn(
 }
 
 // ── Stream parser ─────────────────────────────────────────────────────────────
-// Buffers tool_call argument fragments across SSE chunks (DeepSeek streams them split)
-async function parseStream(
+// Buffers tool_call argument fragments across SSE chunks (DeepSeek streams them split).
+// Exported for unit tests — see test/parseStream.test.ts.
+export async function parseStream(
   response: Response,
   callbacks: AgentCallbacks
 ): Promise<{

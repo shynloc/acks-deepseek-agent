@@ -1001,7 +1001,13 @@ ${memText}`
         .filter((r: any) => r.score >= FLOOR)
         .slice(0, MAX_RESULTS)
 
-      return { success: true, results: scored as { id: string; score: number }[] }
+      // topScore lets the renderer detect the "clustered scores, no gap" case above:
+      // a decent top score with zero results means the model lacks discrimination.
+      return {
+        success: true,
+        results: scored as { id: string; score: number }[],
+        topScore: allScored[0]?.score ?? 0
+      }
     } catch (e: any) {
       return { success: false, error: e.message }
     }

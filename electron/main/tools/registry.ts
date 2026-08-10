@@ -1,12 +1,23 @@
 import type Database from 'better-sqlite3'
 import type Store from 'electron-store'
 
+// Subset of JSON Schema actually used by the builtin tools. Recursive so that
+// array `items` and nested object `properties` are expressible.
+export interface JsonSchemaNode {
+  type?: string
+  description?: string
+  enum?: string[]
+  items?: JsonSchemaNode
+  properties?: Record<string, JsonSchemaNode>
+  required?: string[]
+}
+
 export interface ToolSchema {
   name: string
   description: string
   parameters: {
     type: 'object'
-    properties: Record<string, { type: string; description: string; enum?: string[] }>
+    properties: Record<string, JsonSchemaNode>
     required?: string[]
   }
 }

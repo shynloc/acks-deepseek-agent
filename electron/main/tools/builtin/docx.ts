@@ -11,9 +11,8 @@ import fs from 'fs'
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   Table, TableRow, TableCell, WidthType, BorderStyle,
-  AlignmentType, ShadingType, PageOrientation,
-  Header, Footer, PageNumber, PageNumberElement,
-  Tab, TabStopType,
+  AlignmentType, ShadingType,
+  Header, Footer, PageNumberElement,
   convertInchesToTwip, convertMillimetersToTwip,
   TableLayoutType
 } from 'docx'
@@ -245,7 +244,7 @@ function dataTable(headers: string[], rows: string[][], footer?: string[]): Tabl
       children: footer.map(cell =>
         new TableCell({
           shading: { type: ShadingType.SOLID, color: T.bg3, fill: T.bg3 },
-          borders: { top: { style: BorderStyle.MEDIUM, size: 4, color: T.ink } },
+          borders: { top: { style: BorderStyle.SINGLE, size: 4, color: T.ink } },
           margins: { top: 80, bottom: 80, left: 100, right: 100 },
           children: [new Paragraph({ children: [run(cell, { bold: true, font: T.fZh, size: T.body - 1 })] })]
         })
@@ -364,7 +363,7 @@ toolRegistry.register({
     }
   },
   handler: async (args) => {
-    const d = args as DocxInput
+    const d = args as unknown as DocxInput
     if (!d.sections?.length) return '❌ 至少需要一个章节（sections 不能为空）'
 
     const docTypeLabel = ({
@@ -392,7 +391,7 @@ toolRegistry.register({
         run(d.lede, { font: T.fZh, size: T.h4, color: T.ink2 })
       ]})] : []),
       // Meta row
-      new Paragraph({ spacing: { before: 200, after: 80 }, border: { top: { style: BorderStyle.MEDIUM, size: 8, color: T.ink }}, children: [] }),
+      new Paragraph({ spacing: { before: 200, after: 80 }, border: { top: { style: BorderStyle.SINGLE, size: 8, color: T.ink }}, children: [] }),
       ...metaEntries.map(([k, v]) =>
         new Paragraph({ spacing: { before: 60, after: 0 }, children: [
           run(k.toUpperCase(), { font: T.fMono, size: T.meta, color: T.ink3, allCaps: true }),
@@ -400,7 +399,7 @@ toolRegistry.register({
           run(v, { font: T.fDisplay, size: T.body + 2, bold: true, color: T.ink })
         ]})
       ),
-      new Paragraph({ spacing: { before: 80, after: 0 }, border: { bottom: { style: BorderStyle.MEDIUM, size: 8, color: T.primary }}, children: [] }),
+      new Paragraph({ spacing: { before: 80, after: 0 }, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: T.primary }}, children: [] }),
       new Paragraph({ pageBreakBefore: true, children: [] }),
     ]
 
