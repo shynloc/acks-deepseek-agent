@@ -34,9 +34,13 @@ DeepSeek Notes 是一款运行在本地的 AI 知识管理工具，将 **DeepSee
 
 | 平台 | 文件 |
 |------|------|
-| macOS Apple Silicon | `DeepSeek Notes-x.x.x-arm64.dmg` |
-| macOS Intel | `DeepSeek Notes-x.x.x.dmg` |
-| Windows | `DeepSeek Notes Setup x.x.x.exe` |
+| macOS Apple Silicon | `DeepSeek.Notes-x.x.x-arm64.dmg` |
+| macOS Intel | `DeepSeek.Notes-x.x.x.dmg` |
+| Windows | `DeepSeek.Notes.Setup.x.x.x.exe` |
+
+> 文件名中的点是 GitHub 上传时自动替换空格产生的，属正常现象。
+
+Windows 安装包未做代码签名，首次运行时 SmartScreen 可能提示「未知发布者」，选择「更多信息 → 仍要运行」即可。
 
 ---
 
