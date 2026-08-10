@@ -2,6 +2,7 @@
   "name": "deepseek-notes",
   "version": "1.0.38",
   "description": "本地 AI 知识管理工具",
+  "author": "shynloc <telafuka@gmail.com>",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -93,7 +94,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "resources/icon.png"
     },
     "nsis": {
       "oneClick": false,
