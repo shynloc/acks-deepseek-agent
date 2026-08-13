@@ -339,11 +339,16 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
 
-      // Persist assistant message (use doneMsg so toolCallRecords are included)
+      // Persist assistant message (use doneMsg so toolCallRecords are included).
+      // messages.value.find() hands back a Vue reactive Proxy, and structured clone
+      // rejects Proxy objects outright ("An object could not be cloned"), so the IPC
+      // call would throw and the reply would never reach the database. Send a plain
+      // deep copy instead — a shallow spread is not enough, since toolCallRecords
+      // nests arbitrary tool args/results that are proxied too.
       const savedMsg = messages.value.find(m => m.id === assistantMsg.id)
       const finalContent = savedMsg?.content ?? ''
       if (savedMsg?.content) {
-        await window.api.db.messages.create(convId!, savedMsg)
+        await window.api.db.messages.create(convId!, JSON.parse(JSON.stringify(savedMsg)))
       }
 
       // Update conversation timestamp

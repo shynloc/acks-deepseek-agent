@@ -574,7 +574,7 @@ async function onCatDrop(targetIdx: number) {
   cats.splice(targetIdx, 0, moved)
   // Persist new order_index for each category
   await Promise.all(
-    cats.map((c, i) => window.api.db.categories.update(c.id, { order_index: i }))
+    cats.map((c, i) => window.api.db.categories.update(c.id, { orderIndex: i }))
   )
   await store.loadCategories()
   dragSrcIdx.value  = null

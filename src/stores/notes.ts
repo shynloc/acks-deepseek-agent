@@ -71,7 +71,12 @@ export const useNotesStore = defineStore('notes', () => {
       ...(patch.content !== undefined ? { wordCount: countWords(patch.content) } : {}),
       updatedAt: Date.now()
     }
-    await window.api.db.notes.update(id, updated)
+    // `tags` must not go over IPC: the update handler ignores it (tags are persisted
+    // separately by setTags below), and the tag objects come from the store's reactive
+    // array — structured clone rejects Vue proxies, which would fail the whole call.
+    const dbPatch: Record<string, unknown> = { ...updated }
+    delete dbPatch.tags
+    await window.api.db.notes.update(id, dbPatch)
     if (patch.tags !== undefined) {
       await window.api.db.notes.setTags(id, patch.tags.map(t => t.id))
     }
