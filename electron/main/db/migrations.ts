@@ -69,6 +69,26 @@ export const MIGRATIONS: Migration[] = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_archived, importance DESC)')
     }
   },
+  {
+    version: 2,
+    name: 'categories/tags: color+updated_at columns, deletion tombstones',
+    up: (db) => {
+      addColumnIfMissing(db, 'categories', 'color', 'TEXT DEFAULT NULL')
+      addColumnIfMissing(db, 'categories', 'updated_at', 'INTEGER NOT NULL DEFAULT 0')
+      addColumnIfMissing(db, 'tags', 'updated_at', 'INTEGER NOT NULL DEFAULT 0')
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS deleted_categories (
+          id         TEXT PRIMARY KEY,
+          deleted_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS deleted_tags (
+          id         TEXT PRIMARY KEY,
+          deleted_at INTEGER NOT NULL
+        );
+      `)
+    }
+  },
 ]
 
 export function getSchemaVersion(db: Database.Database): number {

@@ -93,9 +93,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('db:categories:create', (_, c: any) => {
     getDatabase().prepare(`
-      INSERT INTO categories (id, name, parent_id, order_index, created_at)
-      VALUES (@id, @name, @parentId, @orderIndex, @createdAt)
-    `).run({ id: c.id, name: c.name, parentId: c.parentId ?? null, orderIndex: c.orderIndex ?? 0, createdAt: c.createdAt })
+      INSERT INTO categories (id, name, parent_id, order_index, created_at, updated_at)
+      VALUES (@id, @name, @parentId, @orderIndex, @createdAt, @updatedAt)
+    `).run({ id: c.id, name: c.name, parentId: c.parentId ?? null, orderIndex: c.orderIndex ?? 0, createdAt: c.createdAt, updatedAt: c.createdAt })
     return c
   })
 
@@ -105,12 +105,29 @@ export function registerIpcHandlers(): void {
     const params: any = { id }
     if (patch.name !== undefined) { parts.push('name = @name'); params.name = patch.name }
     if (patch.orderIndex !== undefined) { parts.push('order_index = @orderIndex'); params.orderIndex = patch.orderIndex }
-    if (parts.length) db.prepare(`UPDATE categories SET ${parts.join(', ')} WHERE id = @id`).run(params)
+    if (parts.length) {
+      parts.push('updated_at = @updatedAt')
+      params.updatedAt = Date.now()
+      db.prepare(`UPDATE categories SET ${parts.join(', ')} WHERE id = @id`).run(params)
+    }
   })
 
-  ipcMain.handle('db:categories:delete', (_, id: string) =>
-    getDatabase().prepare('DELETE FROM categories WHERE id = ?').run(id)
-  )
+  ipcMain.handle('db:categories:delete', (_, id: string) => {
+    const db = getDatabase()
+    db.transaction(() => {
+      const descendants = db.prepare(`
+        WITH RECURSIVE tree(id) AS (
+          SELECT id FROM categories WHERE id=?
+          UNION ALL
+          SELECT c.id FROM categories c JOIN tree ON c.parent_id=tree.id
+        ) SELECT id FROM tree
+      `).all(id) as Array<{ id: string }>
+      db.prepare('DELETE FROM categories WHERE id = ?').run(id)
+      const tombstone = db.prepare('INSERT OR REPLACE INTO deleted_categories(id,deleted_at) VALUES(?,?)')
+      const deletedAt = Date.now()
+      for (const category of descendants) tombstone.run(category.id, deletedAt)
+    })()
+  })
 
   // ── Tags ──────────────────────────────────────────────────────────────────
   ipcMain.handle('db:tags:list', () =>
@@ -119,15 +136,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('db:tags:create', (_, t: any) => {
     getDatabase().prepare(`
-      INSERT INTO tags (id, name, color, order_index, created_at)
-      VALUES (@id, @name, @color, @orderIndex, @createdAt)
-    `).run({ id: t.id, name: t.name, color: t.color ?? '#6B7280', orderIndex: t.orderIndex ?? 0, createdAt: t.createdAt })
+      INSERT INTO tags (id, name, color, order_index, created_at, updated_at)
+      VALUES (@id, @name, @color, @orderIndex, @createdAt, @updatedAt)
+    `).run({ id: t.id, name: t.name, color: t.color ?? '#6B7280', orderIndex: t.orderIndex ?? 0, createdAt: t.createdAt, updatedAt: t.createdAt })
     return t
   })
 
-  ipcMain.handle('db:tags:delete', (_, id: string) =>
-    getDatabase().prepare('DELETE FROM tags WHERE id = ?').run(id)
-  )
+  ipcMain.handle('db:tags:delete', (_, id: string) => {
+    const db = getDatabase()
+    db.transaction(() => {
+      db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+      db.prepare('INSERT OR REPLACE INTO deleted_tags(id,deleted_at) VALUES(?,?)').run(id, Date.now())
+    })()
+  })
 
   // ── Notes ─────────────────────────────────────────────────────────────────
   ipcMain.handle('db:notes:list', (_, filter: any = {}) => {
