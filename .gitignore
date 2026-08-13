@@ -6,3 +6,5 @@ dist-electron/
 *.sqlite-wal
 .env
 .DS_Store
+# Claude Code 会话记录，勿混入仓库
+*.jsonl
