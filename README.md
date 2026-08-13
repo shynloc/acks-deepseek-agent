@@ -6,7 +6,7 @@
 
 对话即笔记，笔记即上下文
 
-[![Version](https://img.shields.io/badge/version-1.0.38-blue?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
+[![Version](https://img.shields.io/badge/version-1.0.39-blue?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/releases)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Issues](https://img.shields.io/github/issues/shynloc/acks-deepseek-agent?style=flat-square)](https://github.com/shynloc/acks-deepseek-agent/issues)
@@ -41,6 +41,8 @@ DeepSeek Notes 是一款运行在本地的 AI 知识管理工具，将 **DeepSee
 > 文件名中的点是 GitHub 上传时自动替换空格产生的，属正常现象。
 
 Windows 安装包未做代码签名，首次运行时 SmartScreen 可能提示「未知发布者」，选择「更多信息 → 仍要运行」即可。
+
+macOS 安装包同样未做代码签名，首次打开会被 Gatekeeper 拦下。在「应用程序」里右键点击图标并选择「打开」即可绕过；若仍被拦，可在终端执行 `xattr -cr "/Applications/DeepSeek Notes.app"`。
 
 ---
 

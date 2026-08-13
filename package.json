@@ -1,6 +1,6 @@
 {
   "name": "deepseek-notes",
-  "version": "1.0.38",
+  "version": "1.0.39",
   "description": "本地 AI 知识管理工具",
   "author": "shynloc <telafuka@gmail.com>",
   "main": "./out/main/index.js",
